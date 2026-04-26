@@ -15,7 +15,13 @@
         "title": "极简进销存系统",
         "width": 900,
         "height": 600,
-        "resizable": true
+        "resizable": true,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "center": true,
+        "minWidth": 700,
+        "minHeight": 500
       }
     ]
   },

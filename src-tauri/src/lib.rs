@@ -435,6 +435,25 @@ fn add_record(record: Record, state: State<'_, AppState>) -> Result<Record, Stri
     })
 }
 
+#[tauri::command]
+fn close_window(window: tauri::Window) {
+    let _ = window.close();
+}
+
+#[tauri::command]
+fn minimize_window(window: tauri::Window) {
+    let _ = window.minimize();
+}
+
+#[tauri::command]
+fn maximize_window(window: tauri::Window) {
+    if window.is_maximized().unwrap_or(false) {
+        let _ = window.unmaximize();
+    } else {
+        let _ = window.maximize();
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -443,6 +462,7 @@ pub fn run() {
                 .level(log::LevelFilter::Info)
                 .build(),
         )
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
             let app_data_dir = app
                 .path()
@@ -478,7 +498,10 @@ pub fn run() {
             add_unit,
             delete_unit,
             get_records,
-            add_record
+            add_record,
+            close_window,
+            minimize_window,
+            maximize_window
         ))
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

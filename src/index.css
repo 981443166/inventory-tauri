@@ -1,1 +1,6 @@
 @import "tailwindcss";
+
+/* 确保根元素背景透明 */
+#root {
+  background: transparent;
+}
