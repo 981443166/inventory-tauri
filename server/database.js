@@ -11,6 +11,8 @@ db.exec(`
     price REAL NOT NULL,
     stock INTEGER DEFAULT 0,
     category TEXT,
+    brand TEXT,
+    unit TEXT,
     updateTime TEXT
   );
 
@@ -52,5 +54,39 @@ const insertIfEmpty = (table, values) => {
 insertIfEmpty('categories', ['办公用品', '办公设备', '耗材', '其他']);
 insertIfEmpty('brands', ['得力', '晨光', '惠普']);
 insertIfEmpty('units', ['个', '盒', '箱', '包', '台']);
+
+// 数据迁移：检查并添加 brand 和 unit 列（如果不存在）
+const migrateProducts = () => {
+  try {
+    // 检查 brand 列是否存在
+    const brandColumn = db.prepare("PRAGMA table_info(products)").all().find(col => col.name === 'brand');
+    if (!brandColumn) {
+      db.prepare("ALTER TABLE products ADD COLUMN brand TEXT").run();
+      console.log('已添加 brand 列');
+    }
+    
+    // 检查 unit 列是否存在
+    const unitColumn = db.prepare("PRAGMA table_info(products)").all().find(col => col.name === 'unit');
+    if (!unitColumn) {
+      db.prepare("ALTER TABLE products ADD COLUMN unit TEXT").run();
+      console.log('已添加 unit 列');
+    }
+    
+    // 为现有商品设置默认值
+    const defaultBrand = db.prepare("SELECT name FROM brands LIMIT 1").get();
+    const defaultUnit = db.prepare("SELECT name FROM units LIMIT 1").get();
+    
+    if (defaultBrand) {
+      db.prepare("UPDATE products SET brand = ? WHERE brand IS NULL OR brand = ''").run(defaultBrand.name);
+    }
+    if (defaultUnit) {
+      db.prepare("UPDATE products SET unit = ? WHERE unit IS NULL OR unit = ''").run(defaultUnit.name);
+    }
+  } catch (e) {
+    console.error('数据迁移失败:', e);
+  }
+};
+
+migrateProducts();
 
 module.exports = db;

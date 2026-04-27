@@ -10,17 +10,27 @@ const PORT = 3001;
 
 // ---------- 商品 ----------
 app.get('/api/products', (req, res) => {
-  const rows = db.prepare('SELECT id, name, price, stock, category, updateTime FROM products').all();
+  const rows = db.prepare('SELECT id, name, price, stock, category, brand, unit, updateTime FROM products').all();
   res.json(rows);
 });
 
 app.post('/api/products', (req, res) => {
-  const { name, price, category } = req.body;
+  const { name, price, category, brand, unit } = req.body;
   if (!name || price == null) return res.status(400).json({ error: '名称和价格必填' });
   const now = new Date().toISOString().slice(0, 10);
-  const stmt = db.prepare('INSERT INTO products (name, price, stock, category, updateTime) VALUES (?, ?, 0, ?, ?)');
-  const { lastInsertRowid } = stmt.run(name, Number(price), category || '', now);
-  res.json({ id: lastInsertRowid, name, price, stock: 0, category, updateTime: now });
+  const stmt = db.prepare('INSERT INTO products (name, price, stock, category, brand, unit, updateTime) VALUES (?, ?, 0, ?, ?, ?, ?)');
+  const { lastInsertRowid } = stmt.run(name, Number(price), category || '', brand || '', unit || '', now);
+  res.json({ id: lastInsertRowid, name, price, stock: 0, category, brand, unit, updateTime: now });
+});
+
+app.put('/api/products/:id', (req, res) => {
+  const { name, price, category, brand, unit } = req.body;
+  const id = req.params.id;
+  if (!name || price == null) return res.status(400).json({ error: '名称和价格必填' });
+  const now = new Date().toISOString().slice(0, 10);
+  const stmt = db.prepare('UPDATE products SET name = ?, price = ?, category = ?, brand = ?, unit = ?, updateTime = ? WHERE id = ?');
+  stmt.run(name, Number(price), category || '', brand || '', unit || '', now, id);
+  res.json({ id: Number(id), name, price, category, brand, unit, updateTime: now });
 });
 
 app.delete('/api/products/:id', (req, res) => {

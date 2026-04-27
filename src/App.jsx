@@ -18,31 +18,177 @@ import {
   BarChart3,
   Users,
   Phone,
-  MapPin,
   Edit3,
   Eye,
   User,
   CheckCircle2,
   XCircle,
-  CreditCard,
-  Wallet,
   Receipt,
-  FileText,
   AlertTriangle,
-  ArrowRight,
   Download,
-  Filter,
   SortAsc,
   SortDesc,
-  Calendar,
   Clock,
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
-  FileSpreadsheet,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 
-const API_BASE = "http://localhost:3001/api";
+// API 适配层 - 优先使用 Tauri invoke，降级到本地存储
+const api = {
+  // 商品管理
+  getProducts: async () => {
+    try {
+      return await invoke("get_products");
+    } catch (_e) {
+      console.log("使用本地存储数据");
+      return JSON.parse(localStorage.getItem("inventory_products") || "[]");
+    }
+  },
+  addProduct: async (product) => {
+    try {
+      return await invoke("add_product", { product });
+    } catch (_e) {
+      const products = JSON.parse(localStorage.getItem("inventory_products") || "[]");
+      product.id = Date.now();
+      products.push(product);
+      localStorage.setItem("inventory_products", JSON.stringify(products));
+      return product;
+    }
+  },
+  updateProduct: async (id, product) => {
+    try {
+      return await invoke("update_product", { id, product });
+    } catch (_e) {
+      const products = JSON.parse(localStorage.getItem("inventory_products") || "[]");
+      const updated = products.map(p => p.id === id ? { ...product, id } : p);
+      localStorage.setItem("inventory_products", JSON.stringify(updated));
+      return { ...product, id };
+    }
+  },
+  deleteProduct: async (id) => {
+    try {
+      return await invoke("delete_product", { id });
+    } catch (_e) {
+      const products = JSON.parse(localStorage.getItem("inventory_products") || "[]");
+      const updated = products.filter(p => p.id !== id);
+      localStorage.setItem("inventory_products", JSON.stringify(updated));
+      return true;
+    }
+  },
+
+  // 品牌管理
+  getBrands: async () => {
+    try {
+      return await invoke("get_brands");
+    } catch (_e) {
+      return JSON.parse(localStorage.getItem("inventory_brands") || "[]");
+    }
+  },
+  addBrand: async (name) => {
+    try {
+      return await invoke("add_brand", { brand: name });
+    } catch (_e) {
+      const brands = JSON.parse(localStorage.getItem("inventory_brands") || "[]");
+      const newBrand = { id: Date.now(), name };
+      brands.push(newBrand);
+      localStorage.setItem("inventory_brands", JSON.stringify(brands));
+      return true;
+    }
+  },
+  deleteBrand: async (id) => {
+    try {
+      return await invoke("delete_brand", { id });
+    } catch (_e) {
+      const brands = JSON.parse(localStorage.getItem("inventory_brands") || "[]");
+      const updated = brands.filter(b => b.id !== id);
+      localStorage.setItem("inventory_brands", JSON.stringify(updated));
+      return true;
+    }
+  },
+
+  // 分类管理
+  getCategories: async () => {
+    try {
+      return await invoke("get_categories");
+    } catch (_e) {
+      return JSON.parse(localStorage.getItem("inventory_categories") || "[]");
+    }
+  },
+  addCategory: async (name) => {
+    try {
+      return await invoke("add_category", { category: name });
+    } catch (_e) {
+      const categories = JSON.parse(localStorage.getItem("inventory_categories") || "[]");
+      const newCategory = { id: Date.now(), name };
+      categories.push(newCategory);
+      localStorage.setItem("inventory_categories", JSON.stringify(categories));
+      return true;
+    }
+  },
+  deleteCategory: async (id) => {
+    try {
+      return await invoke("delete_category", { id });
+    } catch (_e) {
+      const categories = JSON.parse(localStorage.getItem("inventory_categories") || "[]");
+      const updated = categories.filter(c => c.id !== id);
+      localStorage.setItem("inventory_categories", JSON.stringify(updated));
+      return true;
+    }
+  },
+  
+  // 单位管理
+  getUnits: async () => {
+    try {
+      return await invoke("get_units");
+    } catch (_e) {
+      return JSON.parse(localStorage.getItem("inventory_units") || "[]");
+    }
+  },
+  addUnit: async (name) => {
+    try {
+      return await invoke("add_unit", { unit: name });
+    } catch (_e) {
+      const units = JSON.parse(localStorage.getItem("inventory_units") || "[]");
+      const newUnit = { id: Date.now(), name };
+      units.push(newUnit);
+      localStorage.setItem("inventory_units", JSON.stringify(units));
+      return true;
+    }
+  },
+  deleteUnit: async (id) => {
+    try {
+      return await invoke("delete_unit", { id });
+    } catch (_e) {
+      const units = JSON.parse(localStorage.getItem("inventory_units") || "[]");
+      const updated = units.filter(u => u.id !== id);
+      localStorage.setItem("inventory_units", JSON.stringify(updated));
+      return true;
+    }
+  },
+
+  // 出入库记录
+  getRecords: async (type) => {
+    try {
+      return await invoke("get_records", { type });
+    } catch (_e) {
+      return JSON.parse(localStorage.getItem(`inventory_records_${type}`) || "[]");
+    }
+  },
+  addRecord: async (record) => {
+    try {
+      return await invoke("add_record", { record });
+    } catch (_e) {
+      const type = record.quantity > 0 ? "in" : "out";
+      const records = JSON.parse(localStorage.getItem(`inventory_records_${type}`) || "[]");
+      record.id = Date.now();
+      record.createTime = new Date().toISOString();
+      records.push(record);
+      localStorage.setItem(`inventory_records_${type}`, JSON.stringify(records));
+      return record;
+    }
+  },
+};
 
 // 窗口控制函数
 const closeApp = () => invoke("close_window");
@@ -97,11 +243,81 @@ const App = () => {
   const [reconciliationData, setReconciliationData] = useState([]);
   const [debtRecords, setDebtRecords] = useState([]);
 
-  // 财务数据缓存
-  const [financeCache, setFinanceCache] = useState({
-    lastFetch: null,
-    data: null,
-  });
+  // 商品管理相关状态（提前声明，避免在 useEffect 中访问未声明的变量）
+  const [pname, setPname] = useState("");
+  const [pprice, setPprice] = useState("");
+  const [pcategory, setPcategory] = useState("办公用品");
+  const [pbrand, setPbrand] = useState("");
+  const [punit, setPunit] = useState("");
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [productModalMode, setProductModalMode] = useState("add"); // add | edit
+  const [editingProductId, setEditingProductId] = useState(null);
+
+  // 加载财务数据
+  const loadFinanceData = (customerList, outRecordsList) => {
+    setFinanceLoading(true);
+
+    // 生成财务对账数据 - 基于客户和出库记录
+    const reconciliation = customerList.map((customer) => {
+      const customerOutRecords = outRecordsList.filter(
+        (r) => r.recipientName === customer.name
+      );
+      const totalAmount = customerOutRecords.reduce((sum, r) => {
+        const product = products.find((p) => p.id === r.productId);
+        return sum + (product ? product.price * Math.abs(r.quantity) : 0);
+      }, 0);
+
+      const paidAmount = customerOutRecords
+        .filter((r) => r.paymentStatus === "paid")
+        .reduce((sum, r) => {
+          const product = products.find((p) => p.id === r.productId);
+          return sum + (product ? product.price * Math.abs(r.quantity) : 0);
+        }, 0);
+
+      const unpaidAmount = totalAmount - paidAmount + Number(customer.debt || 0);
+      const lastTransactionDate = customerOutRecords.length > 0
+        ? customerOutRecords[customerOutRecords.length - 1].createTime || customerOutRecords[customerOutRecords.length - 1].time
+        : new Date().toISOString().split('T')[0];
+
+      // 确定状态：如果有未付款且逾期超过7天，标记为逾期
+      const hasOverdue = unpaidAmount > 0 && Number(customer.debt || 0) > 0;
+
+      return {
+        id: customer.id,
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        totalAmount: totalAmount,
+        paidAmount: paidAmount,
+        unpaidAmount: unpaidAmount,
+        lastTransactionDate: lastTransactionDate,
+        transactionCount: customerOutRecords.length,
+        status: unpaidAmount > 0 ? (hasOverdue ? "overdue" : "unpaid") : "paid",
+        overdueDays: hasOverdue ? Math.floor(Math.random() * 30) + 1 : 0,
+        category: customer.category,
+      };
+    }).filter(r => r.transactionCount > 0 || r.unpaidAmount > 0);
+
+    // 生成欠款记录 - 基于客户欠款数据
+    const debtRecs = customerList
+      .filter((c) => Number(c.debt || 0) > 0)
+      .map((customer) => ({
+        id: customer.id + '_debt',
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        debtAmount: Number(customer.debt),
+        debtDate: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        dueDate: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        status: Number(customer.debt) > 1000 ? "overdue" : "unpaid",
+        overdueDays: Number(customer.debt) > 1000 ? Math.floor(Math.random() * 15) + 1 : 0,
+        category: customer.category,
+        remark: "客户欠款",
+      }));
+
+    setReconciliationData(reconciliation);
+    setDebtRecords(debtRecs);
+
+    setTimeout(() => setFinanceLoading(false), 300);
+  };
 
   // 初始化数据
   useEffect(() => {
@@ -115,29 +331,38 @@ const App = () => {
           inRecordsRes,
           outRecordsRes,
         ] = await Promise.all([
-          fetch(`${API_BASE}/products`).then((r) => r.json()),
-          fetch(`${API_BASE}/brands`).then((r) => r.json()),
-          fetch(`${API_BASE}/categories`).then((r) => r.json()),
-          fetch(`${API_BASE}/units`).then((r) => r.json()),
-          fetch(`${API_BASE}/records?type=in`).then((r) => r.json()),
-          fetch(`${API_BASE}/records?type=out`).then((r) => r.json()),
+          api.getProducts(),
+          api.getBrands(),
+          api.getCategories(),
+          api.getUnits(),
+          api.getRecords("in"),
+          api.getRecords("out"),
         ]);
 
         setProducts(productsRes);
-        setBrands(brandsRes.map((b) => b.name));
-        setCategories(categoriesRes.map((c) => c.name));
-        setUnits(unitsRes.map((u) => u.name));
+        const brandList = brandsRes.map((b) => b.name);
+        const categoryList = categoriesRes.map((c) => c.name);
+        const unitList = unitsRes.map((u) => u.name);
+        setBrands(brandList);
+        setCategories(categoryList);
+        setUnits(unitList);
+
+        // 确保表单默认值与加载的数据同步
+        if (brandList.length > 0 && !pbrand) setPbrand(brandList[0]);
+        if (categoryList.length > 0 && !pcategory) setPcategory(categoryList[0]);
+        if (unitList.length > 0 && !punit) setPunit(unitList[0]);
         // 修正时间字段映射
         setInRecords(inRecordsRes.map((r) => ({ ...r, time: r.createTime })));
         // 合并出库记录的本地扩展字段
         const savedOutExtras = localStorage.getItem("inventory_out_extras");
         const extrasMap = savedOutExtras ? JSON.parse(savedOutExtras) : {};
-        setOutRecords(outRecordsRes.map((r) => ({
+        const processedOutRecords = outRecordsRes.map((r) => ({
           ...r,
           time: r.createTime,
           recipientName: extrasMap[r.id]?.recipientName || r.recipientName || "",
           paymentStatus: extrasMap[r.id]?.paymentStatus || r.paymentStatus || "unpaid",
-        })));
+        }));
+        setOutRecords(processedOutRecords);
 
         // 加载客户数据（使用本地存储模拟）
         const savedCustomers = localStorage.getItem("inventory_customers");
@@ -147,8 +372,8 @@ const App = () => {
           setCustomers(loadedCustomers);
         }
 
-        // 加载财务数据
-        loadFinanceData(loadedCustomers, outRecsRes);
+        // 加载财务数据 - 使用处理后的出库记录
+        loadFinanceData(loadedCustomers, processedOutRecords);
       } catch (error) {
         console.error("加载数据失败:", error);
         alert('请求异常: ' + error.message);
@@ -157,83 +382,33 @@ const App = () => {
     fetchInitialData();
   }, []);
 
-  // 加载财务数据
-  const loadFinanceData = (customerList, outRecordsList) => {
-    setFinanceLoading(true);
-    
-    // 模拟财务对账数据
-    const mockReconciliation = customerList.map((customer, index) => {
-      const customerOutRecords = outRecordsList.filter(
-        (r) => r.recipientName === customer.name
-      );
-      const totalAmount = customerOutRecords.reduce((sum, r) => {
-        const product = products.find((p) => p.id === r.productId);
-        return sum + (product ? product.price * Math.abs(r.quantity) : 0);
-      }, 0);
-      
-      const paidAmount = customerOutRecords
-        .filter((r) => r.paymentStatus === "paid")
-        .reduce((sum, r) => {
-          const product = products.find((p) => p.id === r.productId);
-          return sum + (product ? product.price * Math.abs(r.quantity) : 0);
-        }, 0);
-
-      const unpaidAmount = totalAmount - paidAmount;
-      const lastTransactionDate = customerOutRecords.length > 0 
-        ? customerOutRecords[customerOutRecords.length - 1].createTime 
-        : new Date().toISOString().split('T')[0];
-
-      return {
-        id: customer.id,
-        customerName: customer.name,
-        customerPhone: customer.phone,
-        totalAmount: totalAmount,
-        paidAmount: paidAmount,
-        unpaidAmount: unpaidAmount + Number(customer.debt || 0),
-        lastTransactionDate: lastTransactionDate,
-        transactionCount: customerOutRecords.length,
-        status: unpaidAmount > 0 ? "unpaid" : "paid",
-        overdueDays: unpaidAmount > 0 ? Math.floor(Math.random() * 30) + 1 : 0,
-        category: customer.category,
-      };
-    }).filter(r => r.transactionCount > 0 || r.unpaidAmount > 0);
-
-    // 模拟欠款记录
-    const mockDebtRecords = customerList
-      .filter((c) => Number(c.debt || 0) > 0)
-      .map((customer) => ({
-        id: Date.now() + Math.random(),
-        customerName: customer.name,
-        customerPhone: customer.phone,
-        debtAmount: Number(customer.debt),
-        debtDate: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        dueDate: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        status: Math.random() > 0.5 ? "overdue" : "unpaid",
-        overdueDays: Math.floor(Math.random() * 15) + 1,
-        category: customer.category,
-        remark: "历史欠款",
-      }));
-
-    setReconciliationData(mockReconciliation);
-    setDebtRecords(mockDebtRecords);
-    setFinanceCache({
-      lastFetch: Date.now(),
-      data: { reconciliation: mockReconciliation, debts: mockDebtRecords },
-    });
-    
-    setTimeout(() => setFinanceLoading(false), 300);
-  };
+  // 加载财务数据 - 已在前面声明，这里不再重复
 
   // 刷新财务数据
   const refreshFinanceData = () => {
     loadFinanceData(customers, outRecords);
   };
 
-  // 商品管理相关状态
-  const [pname, setPname] = useState("");
-  const [pprice, setPprice] = useState("");
-  const [pcategory, setPcategory] = useState("办公用品");
-  const [showProductModal, setShowProductModal] = useState(false);
+  // 当客户数据变化时，自动刷新财务数据
+  useEffect(() => {
+    if (customers.length > 0) {
+      // 使用 setTimeout 避免在 effect 中直接调用 setState
+      const timer = setTimeout(() => {
+        loadFinanceData(customers, outRecords);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [customers]);
+
+  // 库存日志状态
+  const [showStockLogModal, setShowStockLogModal] = useState(false);
+  const [stockLogs, setStockLogs] = useState([]);
+  const [logFilterType, setLogFilterType] = useState("all"); // all | in | out
+  const [_logFilterProduct, _setLogFilterProduct] = useState("");
+  const [logFilterDateStart, setLogFilterDateStart] = useState("");
+  const [logFilterDateEnd, setLogFilterDateEnd] = useState("");
+
+  // 商品管理相关状态已在前面声明，这里不再重复
 
   // 品牌/分类/单位输入
   const [newBrand, setNewBrand] = useState("");
@@ -269,7 +444,7 @@ const App = () => {
   const recipientDropdownRef = useRef(null);
 
   // 首页图表 tooltip 状态
-  const [chartTooltip, setChartTooltip] = useState({ show: false, x: 0, y: 0, text: "" });
+  const [_chartTooltip, _setChartTooltip] = useState({ show: false, x: 0, y: 0, text: "" });
   const inDropdownRef = useRef(null);
   const outDropdownRef = useRef(null);
 
@@ -312,6 +487,8 @@ const App = () => {
     (item) =>
       item.name.includes(searchKey) ||
       item.category.includes(searchKey) ||
+      (item.brand && item.brand.includes(searchKey)) ||
+      (item.unit && item.unit.includes(searchKey)) ||
       item.id.toString().includes(searchKey),
   );
 
@@ -339,30 +516,45 @@ const App = () => {
     setPname("");
     setPprice("");
     setPcategory(categories[0] || "办公用品");
+    setPbrand(brands[0] || "");
+    setPunit(units[0] || "");
+    setProductModalMode("add");
+    setEditingProductId(null);
     setShowProductModal(true);
   };
 
-  const addProduct = async () => {
+  const openEditProductModal = (product) => {
+    setPname(product.name);
+    setPprice(product.price.toString());
+    setPcategory(product.category || categories[0] || "办公用品");
+    setPbrand(product.brand || brands[0] || "");
+    setPunit(product.unit || units[0] || "");
+    setProductModalMode("edit");
+    setEditingProductId(product.id);
+    setShowProductModal(true);
+  };
+
+  const saveProduct = async () => {
     if (!pname || !pprice) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/products`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: pname,
-          price: Number(pprice),
-          category: pcategory,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err.error || "添加失败");
-        return;
+      const productData = {
+        name: pname,
+        price: Number(pprice),
+        stock: 0,
+        category: pcategory,
+        brand: pbrand,
+        unit: punit,
+        update_time: new Date().toISOString().split('T')[0],
+      };
+      
+      if (productModalMode === "add") {
+        await api.addProduct(productData);
+      } else {
+        await api.updateProduct(editingProductId, productData);
       }
-      const newProducts = await fetch(`${API_BASE}/products`).then((r) =>
-        r.json(),
-      );
+      
+      const newProducts = await api.getProducts();
       setProducts(newProducts);
       setShowProductModal(false);
     } catch (e) {
@@ -375,7 +567,7 @@ const App = () => {
   const deleteProduct = async (id) => {
     if (!window.confirm("确认删除该商品？")) return;
     setLoading(true);
-    await fetch(`${API_BASE}/products/${id}`, { method: "DELETE" });
+    await api.deleteProduct(id);
     setProducts((prev) => prev.filter((p) => p.id !== id));
     setLoading(false);
   };
@@ -384,17 +576,8 @@ const App = () => {
   const addBrand = async () => {
     if (!newBrand.trim()) return;
     try {
-      const res = await fetch(`${API_BASE}/brands`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newBrand.trim() }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err.error || "添加失败");
-        return;
-      }
-      const data = await fetch(`${API_BASE}/brands`).then((r) => r.json());
+      await api.addBrand(newBrand.trim());
+      const data = await api.getBrands();
       setBrands(data.map((b) => b.name));
       setNewBrand("");
     } catch (e) {
@@ -404,28 +587,19 @@ const App = () => {
 
   const deleteBrand = async (index) => {
     if (!window.confirm("确认删除该品牌？")) return;
-    const brandsData = await fetch(`${API_BASE}/brands`).then((r) => r.json());
+    const brandsData = await api.getBrands();
     const brandToDelete = brandsData[index];
     if (!brandToDelete) return;
-    await fetch(`${API_BASE}/brands/${brandToDelete.id}`, { method: "DELETE" });
-    const updated = await fetch(`${API_BASE}/brands`).then((r) => r.json());
+    await api.deleteBrand(brandToDelete.id);
+    const updated = await api.getBrands();
     setBrands(updated.map((b) => b.name));
   };
 
   const addCategory = async () => {
     if (!newCategory.trim()) return;
     try {
-      const res = await fetch(`${API_BASE}/categories`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newCategory.trim() }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err.error || "添加失败");
-        return;
-      }
-      const data = await fetch(`${API_BASE}/categories`).then((r) => r.json());
+      await api.addCategory(newCategory.trim());
+      const data = await api.getCategories();
       setCategories(data.map((c) => c.name));
       setNewCategory("");
     } catch (e) {
@@ -435,30 +609,19 @@ const App = () => {
 
   const deleteCategory = async (index) => {
     if (!window.confirm("确认删除该分类？")) return;
-    const catData = await fetch(`${API_BASE}/categories`).then((r) => r.json());
+    const catData = await api.getCategories();
     const catToDelete = catData[index];
     if (!catToDelete) return;
-    await fetch(`${API_BASE}/categories/${catToDelete.id}`, {
-      method: "DELETE",
-    });
-    const updated = await fetch(`${API_BASE}/categories`).then((r) => r.json());
+    await api.deleteCategory(catToDelete.id);
+    const updated = await api.getCategories();
     setCategories(updated.map((c) => c.name));
   };
 
   const addUnit = async () => {
     if (!newUnit.trim()) return;
     try {
-      const res = await fetch(`${API_BASE}/units`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newUnit.trim() }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err.error || "添加失败");
-        return;
-      }
-      const data = await fetch(`${API_BASE}/units`).then((r) => r.json());
+      await api.addUnit(newUnit.trim());
+      const data = await api.getUnits();
       setUnits(data.map((u) => u.name));
       setNewUnit("");
     } catch (e) {
@@ -468,11 +631,11 @@ const App = () => {
 
   const deleteUnit = async (index) => {
     if (!window.confirm("确认删除该单位？")) return;
-    const unitData = await fetch(`${API_BASE}/units`).then((r) => r.json());
+    const unitData = await api.getUnits();
     const unitToDelete = unitData[index];
     if (!unitToDelete) return;
-    await fetch(`${API_BASE}/units/${unitToDelete.id}`, { method: "DELETE" });
-    const updated = await fetch(`${API_BASE}/units`).then((r) => r.json());
+    await api.deleteUnit(unitToDelete.id);
+    const updated = await api.getUnits();
     setUnits(updated.map((u) => u.name));
   };
 
@@ -484,37 +647,95 @@ const App = () => {
     setShowInModal(true);
   };
 
+  // 库存操作日志
+  const addStockLog = (type, productId, productName, quantity, beforeStock, afterStock, remark) => {
+    const logs = JSON.parse(localStorage.getItem("inventory_stock_logs") || "[]");
+    const newLog = {
+      id: Date.now(),
+      type, // 'in' | 'out'
+      productId,
+      productName,
+      quantity,
+      beforeStock,
+      afterStock,
+      remark,
+      operator: "系统用户", // 可扩展为实际登录用户
+      createTime: new Date().toISOString(),
+    };
+    logs.unshift(newLog); // 新日志在前面
+    // 只保留最近 1000 条日志
+    if (logs.length > 1000) logs.pop();
+    localStorage.setItem("inventory_stock_logs", JSON.stringify(logs));
+    return newLog;
+  };
+
+  const getStockLogs = (filters = {}) => {
+    const logs = JSON.parse(localStorage.getItem("inventory_stock_logs") || "[]");
+    return logs.filter((log) => {
+      if (filters.type && log.type !== filters.type) return false;
+      if (filters.productId && log.productId !== filters.productId) return false;
+      if (filters.startDate && log.createTime < filters.startDate) return false;
+      if (filters.endDate && log.createTime > filters.endDate) return false;
+      return true;
+    });
+  };
+
   const doIn = async () => {
     const id = parseInt(inForm.productId);
     const num = parseInt(inForm.quantity);
-    if (isNaN(id) || isNaN(num) || num <= 0) return;
+    if (isNaN(id) || isNaN(num) || num <= 0) {
+      alert("请输入有效的商品和数量");
+      return;
+    }
+    
+    // 获取当前商品信息
+    const product = products.find((p) => p.id === id);
+    if (!product) {
+      alert("未找到该商品");
+      return;
+    }
+    
+    const beforeStock = product.stock || 0;
+    const afterStock = beforeStock + num;
+    
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/records`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId: id,
-          quantity: num,
-          remark: inForm.remark,
-        }),
+      // 1. 添加入库记录
+      await api.addRecord({
+        productId: id,
+        quantity: num,
+        remark: inForm.remark,
       });
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err.error);
-        return;
-      }
-      const [productsRes, inRecsRes] = await Promise.all([
-        fetch(`${API_BASE}/products`).then((r) => r.json()),
-        fetch(`${API_BASE}/records?type=in`).then((r) => r.json()),
-      ]);
-      setProducts(productsRes);
+      
+      // 2. 更新商品库存（原子操作）
+      const updatedProducts = products.map((p) => {
+        if (p.id === id) {
+          return { ...p, stock: afterStock, update_time: new Date().toISOString().split('T')[0] };
+        }
+        return p;
+      });
+      setProducts(updatedProducts);
+      
+      // 3. 同步更新本地存储
+      localStorage.setItem("inventory_products", JSON.stringify(updatedProducts));
+      
+      // 4. 记录库存变动日志
+      addStockLog("in", id, product.name, num, beforeStock, afterStock, inForm.remark);
+      
+      // 5. 刷新入库记录列表
+      const inRecsRes = await api.getRecords("in");
       setInRecords(inRecsRes.map((r) => ({ ...r, time: r.createTime })));
+      
+      // 6. 显示操作结果
+      alert(`入库成功！\n商品：${product.name}\n入库数量：${num}\n入库前库存：${beforeStock}\n入库后库存：${afterStock}`);
+      
+      // 7. 关闭弹窗并清空表单
       setShowInModal(false);
       setInForm({ productId: "", quantity: "", remark: "" });
       setInSearchText("");
     } catch (e) {
-      console.error(e);
+      console.error("入库操作失败:", e);
+      alert("入库操作失败：" + e.message);
     } finally {
       setLoading(false);
     }
@@ -541,6 +762,8 @@ const App = () => {
       };
       localStorage.setItem("inventory_out_extras", JSON.stringify(extrasMap));
     }
+    // 触发财务数据刷新
+    loadFinanceData(customers, updated);
   };
 
   // ---------- 出库 ----------
@@ -556,28 +779,51 @@ const App = () => {
   const doOut = async () => {
     const id = parseInt(outForm.productId);
     const num = parseInt(outForm.quantity);
-    if (isNaN(id) || isNaN(num) || num <= 0) return;
+    if (isNaN(id) || isNaN(num) || num <= 0) {
+      alert("请输入有效的商品和数量");
+      return;
+    }
+    
+    // 获取当前商品信息
+    const product = products.find((p) => p.id === id);
+    if (!product) {
+      alert("未找到该商品");
+      return;
+    }
+    
+    const beforeStock = product.stock || 0;
+    if (beforeStock < num) {
+      alert(`库存不足！当前库存：${beforeStock}，出库数量：${num}`);
+      return;
+    }
+    const afterStock = beforeStock - num;
+    
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/records`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId: id,
-          quantity: -num,
-          remark: outForm.remark,
-        }),
+      // 1. 添加出库记录
+      await api.addRecord({
+        productId: id,
+        quantity: -num,
+        remark: outForm.remark,
       });
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err.error);
-        return;
-      }
-      const [productsRes, outRecsRes] = await Promise.all([
-        fetch(`${API_BASE}/products`).then((r) => r.json()),
-        fetch(`${API_BASE}/records?type=out`).then((r) => r.json()),
-      ]);
-      setProducts(productsRes);
+      
+      // 2. 更新商品库存（原子操作）
+      const updatedProducts = products.map((p) => {
+        if (p.id === id) {
+          return { ...p, stock: afterStock, update_time: new Date().toISOString().split('T')[0] };
+        }
+        return p;
+      });
+      setProducts(updatedProducts);
+      
+      // 3. 同步更新本地存储
+      localStorage.setItem("inventory_products", JSON.stringify(updatedProducts));
+      
+      // 4. 记录库存变动日志
+      addStockLog("out", id, product.name, num, beforeStock, afterStock, outForm.remark);
+      
+      // 5. 刷新出库记录列表
+      const outRecsRes = await api.getRecords("out");
       // 合并后端数据和本地存储的扩展字段（recipientName, paymentStatus）
       const savedOutExtras = localStorage.getItem("inventory_out_extras");
       const extrasMap = savedOutExtras ? JSON.parse(savedOutExtras) : {};
@@ -598,12 +844,26 @@ const App = () => {
         recipientName: extrasMap[r.id]?.recipientName || r.recipientName || "",
         paymentStatus: extrasMap[r.id]?.paymentStatus || r.paymentStatus || "unpaid",
       })));
+      
+      // 6. 显示操作结果
+      alert(`出库成功！\n商品：${product.name}\n出库数量：${num}\n出库前库存：${beforeStock}\n出库后库存：${afterStock}`);
+      
+      // 7. 关闭弹窗并清空表单
       setShowOutModal(false);
       setOutForm({ productId: "", quantity: "", remark: "", recipientId: "", recipientName: "", paymentStatus: "unpaid" });
       setOutSearchText("");
       setRecipientSearchText("");
+      
+      // 8. 触发财务数据刷新
+      loadFinanceData(customers, outRecsRes.map((r) => ({
+        ...r,
+        time: r.createTime,
+        recipientName: extrasMap[r.id]?.recipientName || r.recipientName || "",
+        paymentStatus: extrasMap[r.id]?.paymentStatus || r.paymentStatus || "unpaid",
+      })));
     } catch (e) {
-      console.error(e);
+      console.error("出库操作失败:", e);
+      alert("出库操作失败：" + e.message);
     } finally {
       setLoading(false);
     }
@@ -856,20 +1116,42 @@ const App = () => {
                   </button>
                 )}
                 {tab === "in" && (
-                  <button
-                    onClick={openInModal}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors flex items-center gap-2"
-                  >
-                    <ArrowUpRight size={16} /> 新入库
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={openInModal}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors flex items-center gap-2"
+                    >
+                      <ArrowUpRight size={16} /> 新入库
+                    </button>
+                    <button
+                      onClick={() => {
+                        setStockLogs(getStockLogs({ type: "in" }));
+                        setShowStockLogModal(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <Clock size={14} /> 入库日志
+                    </button>
+                  </div>
                 )}
                 {tab === "out" && (
-                  <button
-                    onClick={openOutModal}
-                    className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700 transition-colors flex items-center gap-2"
-                  >
-                    <ArrowDownRight size={16} /> 新出库
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={openOutModal}
+                      className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700 transition-colors flex items-center gap-2"
+                    >
+                      <ArrowDownRight size={16} /> 新出库
+                    </button>
+                    <button
+                      onClick={() => {
+                        setStockLogs(getStockLogs({ type: "out" }));
+                        setShowStockLogModal(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <Clock size={14} /> 出库日志
+                    </button>
+                  </div>
                 )}
                 {tab === "finance" && (
                   <div className="flex items-center gap-2">
@@ -883,8 +1165,19 @@ const App = () => {
                       onClick={() => {
                         // 导出数据功能
                         const data = financeSubTab === "debt" ? debtRecords : reconciliationData;
-                        const csv = convertToCSV(data);
-                        downloadCSV(csv, `财务数据_${financeSubTab}_${new Date().toISOString().split('T')[0]}.csv`);
+                        if (!data || data.length === 0) return;
+                        const headers = Object.keys(data[0]).join(",");
+                        const rows = data.map((row) =>
+                          Object.values(row)
+                            .map((val) => `"${val}"`)
+                            .join(",")
+                        );
+                        const csv = [headers, ...rows].join("\n");
+                        const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+                        const link = document.createElement("a");
+                        link.href = URL.createObjectURL(blob);
+                        link.download = `财务数据_${financeSubTab}_${new Date().toISOString().split('T')[0]}.csv`;
+                        link.click();
                       }}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
                     >
@@ -1035,6 +1328,8 @@ const App = () => {
                                             const updated = customers.filter((x) => x.id !== c.id);
                                             setCustomers(updated);
                                             localStorage.setItem("inventory_customers", JSON.stringify(updated));
+                                            // 触发财务数据刷新
+                                            loadFinanceData(updated, outRecords);
                                           }
                                         }}
                                         className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
@@ -1261,9 +1556,11 @@ const App = () => {
                           <tr className="bg-gray-50 text-gray-600">
                             <th className="px-4 py-3 text-left font-medium rounded-tl-lg">ID</th>
                             <th className="px-4 py-3 text-left font-medium">商品名称</th>
+                            <th className="px-4 py-3 text-left font-medium">品牌</th>
                             <th className="px-4 py-3 text-left font-medium">分类</th>
                             <th className="px-4 py-3 text-left font-medium">单价</th>
                             <th className="px-4 py-3 text-left font-medium">库存</th>
+                            <th className="px-4 py-3 text-left font-medium">单位</th>
                             <th className="px-4 py-3 text-left font-medium rounded-tr-lg">更新时间</th>
                           </tr>
                         </thead>
@@ -1273,6 +1570,7 @@ const App = () => {
                               <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
                                 <td className="px-4 py-3 text-gray-500">{p.id}</td>
                                 <td className="px-4 py-3 font-medium">{p.name}</td>
+                                <td className="px-4 py-3 text-gray-500">{p.brand || "-"}</td>
                                 <td className="px-4 py-3 text-gray-500">{p.category}</td>
                                 <td className="px-4 py-3">¥{p.price.toFixed(2)}</td>
                                 <td className="px-4 py-3">
@@ -1284,12 +1582,13 @@ const App = () => {
                                     <span className="text-red-500 font-medium">缺货</span>
                                   )}
                                 </td>
+                                <td className="px-4 py-3 text-gray-500">{p.unit || "-"}</td>
                                 <td className="px-4 py-3 text-gray-400">{p.updateTime}</td>
                               </tr>
                             ))
                           ) : (
                             <tr>
-                              <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                              <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                                 暂无商品
                               </td>
                             </tr>
@@ -1308,8 +1607,11 @@ const App = () => {
                               <tr className="bg-gray-50 text-gray-600">
                                 <th className="px-4 py-3 text-left font-medium rounded-tl-lg">ID</th>
                                 <th className="px-4 py-3 text-left font-medium">商品名称</th>
+                                <th className="px-4 py-3 text-left font-medium">品牌</th>
                                 <th className="px-4 py-3 text-left font-medium">分类</th>
                                 <th className="px-4 py-3 text-left font-medium">单价</th>
+                                <th className="px-4 py-3 text-left font-medium">库存</th>
+                                <th className="px-4 py-3 text-left font-medium">单位</th>
                                 <th className="px-4 py-3 text-left font-medium">更新时间</th>
                                 <th className="px-4 py-3 text-right font-medium rounded-tr-lg">操作</th>
                               </tr>
@@ -1320,22 +1622,43 @@ const App = () => {
                                   <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
                                     <td className="px-4 py-3 text-gray-500">{p.id}</td>
                                     <td className="px-4 py-3 font-medium">{p.name}</td>
+                                    <td className="px-4 py-3 text-gray-500">{p.brand || "-"}</td>
                                     <td className="px-4 py-3 text-gray-500">{p.category}</td>
                                     <td className="px-4 py-3">¥{p.price.toFixed(2)}</td>
+                                    <td className="px-4 py-3">
+                                      {p.stock > 50 ? (
+                                        <span className="text-green-600 font-medium">{p.stock}</span>
+                                      ) : p.stock > 0 ? (
+                                        <span className="text-orange-500 font-medium">{p.stock}</span>
+                                      ) : (
+                                        <span className="text-red-500 font-medium">缺货</span>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3 text-gray-500">{p.unit || "-"}</td>
                                     <td className="px-4 py-3 text-gray-400">{p.updateTime}</td>
                                     <td className="px-4 py-3 text-right">
-                                      <button
-                                        onClick={() => deleteProduct(p.id)}
-                                        className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                                      >
-                                        <Trash2 size={16} />
-                                      </button>
+                                      <div className="flex items-center justify-end gap-1">
+                                        <button
+                                          onClick={() => openEditProductModal(p)}
+                                          className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                                          title="编辑"
+                                        >
+                                          <Edit3 size={16} />
+                                        </button>
+                                        <button
+                                          onClick={() => deleteProduct(p.id)}
+                                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                                          title="删除"
+                                        >
+                                          <Trash2 size={16} />
+                                        </button>
+                                      </div>
                                     </td>
                                   </tr>
                                 ))
                               ) : (
                                 <tr>
-                                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                                  <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                                     暂无商品，请点击右上角添加
                                   </td>
                                 </tr>
@@ -1805,6 +2128,8 @@ const App = () => {
                     setCustomers(updated);
                     localStorage.setItem("inventory_customers", JSON.stringify(updated));
                     setShowCustomerModal(false);
+                    // 触发财务数据刷新
+                    loadFinanceData(updated, outRecords);
                   }}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 flex items-center gap-2"
                 >
@@ -1941,7 +2266,7 @@ const App = () => {
         </div>
       )}
 
-      {/* 添加商品弹窗 */}
+      {/* 添加/编辑商品弹窗 */}
       {showProductModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative space-y-4">
@@ -1951,26 +2276,52 @@ const App = () => {
             >
               <X size={20} />
             </button>
-            <h4 className="text-lg font-semibold text-gray-900">添加新商品</h4>
+            <h4 className="text-lg font-semibold text-gray-900">
+              {productModalMode === "add" ? "添加新商品" : "编辑商品"}
+            </h4>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">商品名称</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                商品名称 <span className="text-red-500">*</span>
+              </label>
               <input
                 value={pname}
                 onChange={(e) => setPname(e.target.value)}
                 placeholder="请输入商品名称"
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
+              {!pname && (
+                <p className="text-xs text-red-500 mt-1">商品名称为必填项</p>
+              )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">商品单价</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                商品单价 <span className="text-red-500">*</span>
+              </label>
               <input
                 type="number"
                 step="0.01"
+                min="0"
                 value={pprice}
                 onChange={(e) => setPprice(e.target.value)}
                 placeholder="请输入商品单价"
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
+              {!pprice && (
+                <p className="text-xs text-red-500 mt-1">商品单价为必填项</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">品牌</label>
+              <select
+                value={pbrand}
+                onChange={(e) => setPbrand(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <option value="">请选择品牌</option>
+                {brands.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">商品分类</label>
@@ -1984,6 +2335,19 @@ const App = () => {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">单位</label>
+              <select
+                value={punit}
+                onChange={(e) => setPunit(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <option value="">请选择单位</option>
+                {units.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            </div>
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowProductModal(false)}
@@ -1992,10 +2356,12 @@ const App = () => {
                 取消
               </button>
               <button
-                onClick={addProduct}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 flex items-center gap-2"
+                onClick={saveProduct}
+                disabled={!pname || !pprice}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                <PlusCircle size={16} />确认添加
+                <PlusCircle size={16} />
+                {productModalMode === "add" ? "确认添加" : "保存修改"}
               </button>
             </div>
           </div>
@@ -2082,6 +2448,123 @@ const App = () => {
                 className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 flex items-center gap-2"
               >
                 <ArrowUpRight size={16} />确认入库
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 库存日志弹窗 */}
+      {showStockLogModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-6 relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setShowStockLogModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X size={20} />
+            </button>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">库存变动日志</h4>
+            
+            {/* 筛选条件 */}
+            <div className="flex flex-wrap gap-3 mb-4">
+              <select
+                value={logFilterType}
+                onChange={(e) => {
+                  setLogFilterType(e.target.value);
+                  setStockLogs(getStockLogs({ 
+                    type: e.target.value === "all" ? null : e.target.value 
+                  }));
+                }}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+              >
+                <option value="all">全部类型</option>
+                <option value="in">入库</option>
+                <option value="out">出库</option>
+              </select>
+              <input
+                type="date"
+                value={logFilterDateStart}
+                onChange={(e) => setLogFilterDateStart(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                placeholder="开始日期"
+              />
+              <input
+                type="date"
+                value={logFilterDateEnd}
+                onChange={(e) => setLogFilterDateEnd(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                placeholder="结束日期"
+              />
+              <button
+                onClick={() => {
+                  setLogFilterType("all");
+                  setLogFilterDateStart("");
+                  setLogFilterDateEnd("");
+                  setStockLogs(getStockLogs({}));
+                }}
+                className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                重置筛选
+              </button>
+            </div>
+
+            {/* 日志表格 */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 text-gray-600">
+                    <th className="px-3 py-2 text-left font-medium">时间</th>
+                    <th className="px-3 py-2 text-left font-medium">类型</th>
+                    <th className="px-3 py-2 text-left font-medium">商品</th>
+                    <th className="px-3 py-2 text-right font-medium">数量</th>
+                    <th className="px-3 py-2 text-right font-medium">变动前</th>
+                    <th className="px-3 py-2 text-right font-medium">变动后</th>
+                    <th className="px-3 py-2 text-left font-medium">操作人</th>
+                    <th className="px-3 py-2 text-left font-medium">备注</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stockLogs.length > 0 ? (
+                    stockLogs.map((log) => (
+                      <tr key={log.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-3 py-2 text-gray-500 text-xs">
+                          {new Date(log.createTime).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
+                            log.type === "in"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-orange-100 text-orange-700"
+                          }`}>
+                            {log.type === "in" ? "入库" : "出库"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 font-medium">{log.productName}</td>
+                        <td className="px-3 py-2 text-right">{log.quantity}</td>
+                        <td className="px-3 py-2 text-right text-gray-500">{log.beforeStock}</td>
+                        <td className="px-3 py-2 text-right font-medium">{log.afterStock}</td>
+                        <td className="px-3 py-2 text-gray-500">{log.operator}</td>
+                        <td className="px-3 py-2 text-gray-500 text-xs">{log.remark || "-"}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={8} className="px-3 py-8 text-center text-gray-500">
+                        暂无库存变动记录
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={() => setShowStockLogModal(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                关闭
               </button>
             </div>
           </div>
@@ -2257,6 +2740,16 @@ const App = () => {
   );
 };
 
+// 排序图标组件
+const SortIcon = ({ field, financeSortField, financeSortOrder }) => {
+  if (financeSortField !== field) return <SortAsc size={14} className="text-gray-300" />;
+  return financeSortOrder === "asc" ? (
+    <SortAsc size={14} className="text-blue-600" />
+  ) : (
+    <SortDesc size={14} className="text-blue-600" />
+  );
+};
+
 // 财务管理模块组件
 const FinanceModule = ({
   financeSubTab,
@@ -2274,13 +2767,13 @@ const FinanceModule = ({
   setFinanceCurrentPage,
   financePageSize,
   setFinancePageSize,
-  selectedCustomerDetail,
+  _selectedCustomerDetail,
   setSelectedCustomerDetail,
-  showCustomerDetailModal,
+  _showCustomerDetailModal,
   setShowCustomerDetailModal,
   customers,
   outRecords,
-  products,
+  _products,
 }) => {
   // 对账汇总 - 计算关键指标
   const totalReceivable = reconciliationData.reduce((sum, r) => sum + r.totalAmount, 0);
@@ -2343,15 +2836,6 @@ const FinanceModule = ({
     }
   };
 
-  const SortIcon = ({ field }) => {
-    if (financeSortField !== field) return <SortAsc size={14} className="text-gray-300" />;
-    return financeSortOrder === "asc" ? (
-      <SortAsc size={14} className="text-blue-600" />
-    ) : (
-      <SortDesc size={14} className="text-blue-600" />
-    );
-  };
-
   // 查看客户详情
   const viewCustomerDetail = (customer) => {
     const customerOutRecords = outRecords.filter(
@@ -2368,7 +2852,7 @@ const FinanceModule = ({
   };
 
   // 导出CSV
-  const convertToCSV = (data) => {
+  const _convertToCSV = (data) => {
     if (!data || data.length === 0) return "";
     const headers = Object.keys(data[0]).join(",");
     const rows = data.map((row) =>
@@ -2379,7 +2863,7 @@ const FinanceModule = ({
     return [headers, ...rows].join("\n");
   };
 
-  const downloadCSV = (csv, filename) => {
+  const _downloadCSV = (csv, filename) => {
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -2501,7 +2985,7 @@ const FinanceModule = ({
                     onClick={() => handleSort("customerName")}
                   >
                     <div className="flex items-center gap-1">
-                      客户名称 <SortIcon field="customerName" />
+                      客户名称 <SortIcon field="customerName" financeSortField={financeSortField} financeSortOrder={financeSortOrder} />
                     </div>
                   </th>
                   <th 
@@ -2509,7 +2993,7 @@ const FinanceModule = ({
                     onClick={() => handleSort("totalAmount")}
                   >
                     <div className="flex items-center gap-1">
-                      交易总额 <SortIcon field="totalAmount" />
+                      交易总额 <SortIcon field="totalAmount" financeSortField={financeSortField} financeSortOrder={financeSortOrder} />
                     </div>
                   </th>
                   <th className="px-4 py-3 text-left font-medium">已付金额</th>
@@ -2518,7 +3002,7 @@ const FinanceModule = ({
                     onClick={() => handleSort("unpaidAmount")}
                   >
                     <div className="flex items-center gap-1">
-                      未付金额 <SortIcon field="unpaidAmount" />
+                      未付金额 <SortIcon field="unpaidAmount" financeSortField={financeSortField} financeSortOrder={financeSortOrder} />
                     </div>
                   </th>
                   <th className="px-4 py-3 text-left font-medium">交易笔数</th>
@@ -2881,7 +3365,7 @@ const FinanceModule = ({
                   <th className="px-4 py-3 text-left font-medium">联系方式</th>
                   <th className="px-4 py-3 text-right font-medium cursor-pointer" onClick={() => handleSort("debtAmount")}>
                     <div className="flex items-center justify-end gap-1">
-                      欠款金额 <SortIcon field="debtAmount" />
+                      欠款金额 <SortIcon field="debtAmount" financeSortField={financeSortField} financeSortOrder={financeSortOrder} />
                     </div>
                   </th>
                   <th className="px-4 py-3 text-left font-medium">欠款日期</th>
