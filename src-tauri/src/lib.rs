@@ -19,7 +19,9 @@ fn init_db_tables(conn: &Connection) -> Result<()> {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             price REAL NOT NULL,
-            stock INTEGER NOT NULL,
+            stock INTEGER NOT NULL DEFAULT 0,
+            brand TEXT,
+            unit TEXT,
             category TEXT NOT NULL,
             update_time TEXT NOT NULL
         )",
@@ -72,63 +74,12 @@ fn init_db_tables(conn: &Connection) -> Result<()> {
         [],
     )?;
 
-    // 插入默认数据
-    let count: i32 = conn.query_row("SELECT COUNT(*) FROM brands", [], |row| row.get(0))?;
-    if count == 0 {
-        conn.execute("INSERT INTO brands (name) VALUES ('得力')", [])?;
-        conn.execute("INSERT INTO brands (name) VALUES ('晨光')", [])?;
-        conn.execute("INSERT INTO brands (name) VALUES ('惠普')", [])?;
-    }
-
-    let count: i32 = conn.query_row("SELECT COUNT(*) FROM categories", [], |row| row.get(0))?;
-    if count == 0 {
-        conn.execute("INSERT INTO categories (name) VALUES ('办公用品')", [])?;
-        conn.execute("INSERT INTO categories (name) VALUES ('办公设备')", [])?;
-        conn.execute("INSERT INTO categories (name) VALUES ('耗材')", [])?;
-        conn.execute("INSERT INTO categories (name) VALUES ('其他')", [])?;
-    }
-
-    let count: i32 = conn.query_row("SELECT COUNT(*) FROM units", [], |row| row.get(0))?;
-    if count == 0 {
-        conn.execute("INSERT INTO units (name) VALUES ('个')", [])?;
-        conn.execute("INSERT INTO units (name) VALUES ('盒')", [])?;
-        conn.execute("INSERT INTO units (name) VALUES ('箱')", [])?;
-        conn.execute("INSERT INTO units (name) VALUES ('包')", [])?;
-        conn.execute("INSERT INTO units (name) VALUES ('台')", [])?;
-    }
-
-    let count: i32 = conn.query_row("SELECT COUNT(*) FROM products", [], |row| row.get(0))?;
-    if count == 0 {
-        conn.execute(
-            "INSERT INTO products (name, price, stock, category, update_time) VALUES ('笔记本', 5.0, 120, '办公用品', '2026-04-25')",
-            [],
-        )?;
-        conn.execute(
-            "INSERT INTO products (name, price, stock, category, update_time) VALUES ('签字笔', 2.0, 300, '办公用品', '2026-04-24')",
-            [],
-        )?;
-        conn.execute(
-            "INSERT INTO products (name, price, stock, category, update_time) VALUES ('文件夹', 8.0, 85, '办公用品', '2026-04-23')",
-            [],
-        )?;
-        conn.execute(
-            "INSERT INTO products (name, price, stock, category, update_time) VALUES ('打印机硒鼓', 120.0, 15, '办公设备', '2026-04-22')",
-            [],
-        )?;
-        conn.execute(
-            "INSERT INTO products (name, price, stock, category, update_time) VALUES ('A4打印纸', 25.0, 60, '办公用品', '2026-04-21')",
-            [],
-        )?;
-    }
-
     Ok(())
 }
 
 fn get_conn(state: &State<'_, AppState>) -> Result<Connection, String> {
     let db_path = get_db_path(state);
-    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    init_db_tables(&conn).map_err(|e| e.to_string())?;
-    Ok(conn)
+    Connection::open(&db_path).map_err(|e| e.to_string())
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -137,6 +88,10 @@ struct Product {
     name: String,
     price: f64,
     stock: i32,
+    #[serde(default)]
+    brand: String,
+    #[serde(default)]
+    unit: String,
     category: String,
     update_time: String,
 }
@@ -181,7 +136,7 @@ fn init_database(state: State<'_, AppState>) -> Result<(), String> {
 fn get_products(state: State<'_, AppState>) -> Result<Vec<Product>, String> {
     let conn = get_conn(&state)?;
     let mut stmt = conn
-        .prepare("SELECT id, name, price, stock, category, update_time FROM products")
+        .prepare("SELECT id, name, price, stock, brand, unit, category, update_time FROM products")
         .map_err(|e| e.to_string())?;
 
     let rows = stmt
@@ -191,8 +146,10 @@ fn get_products(state: State<'_, AppState>) -> Result<Vec<Product>, String> {
                 name: row.get(1)?,
                 price: row.get(2)?,
                 stock: row.get(3)?,
-                category: row.get(4)?,
-                update_time: row.get(5)?,
+                brand: row.get(4).unwrap_or_default(),
+                unit: row.get(5).unwrap_or_default(),
+                category: row.get(6)?,
+                update_time: row.get(7)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -208,8 +165,8 @@ fn get_products(state: State<'_, AppState>) -> Result<Vec<Product>, String> {
 fn add_product(product: Product, state: State<'_, AppState>) -> Result<Product, String> {
     let conn = get_conn(&state)?;
     conn.execute(
-        "INSERT INTO products (name, price, stock, category, update_time) VALUES (?, ?, ?, ?, ?)",
-        rusqlite::params![product.name, product.price, product.stock, product.category, product.update_time],
+        "INSERT INTO products (name, price, stock, brand, unit, category, update_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        rusqlite::params![product.name, product.price, product.stock, product.brand, product.unit, product.category, product.update_time],
     )
     .map_err(|e| e.to_string())?;
 
@@ -221,8 +178,8 @@ fn add_product(product: Product, state: State<'_, AppState>) -> Result<Product, 
 fn update_product(product: Product, state: State<'_, AppState>) -> Result<Product, String> {
     let conn = get_conn(&state)?;
     conn.execute(
-        "UPDATE products SET name = ?, price = ?, stock = ?, category = ?, update_time = ? WHERE id = ?",
-        rusqlite::params![product.name, product.price, product.stock, product.category, product.update_time, product.id],
+        "UPDATE products SET name = ?, price = ?, stock = ?, brand = ?, unit = ?, category = ?, update_time = ? WHERE id = ?",
+        rusqlite::params![product.name, product.price, product.stock, product.brand, product.unit, product.category, product.update_time, product.id],
     )
     .map_err(|e| e.to_string())?;
     Ok(product)
