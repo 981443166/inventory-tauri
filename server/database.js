@@ -42,19 +42,6 @@ db.exec(`
   );
 `);
 
-// 插入默认数据（如果对应表为空）
-const insertIfEmpty = (table, values) => {
-  const { count } = db.prepare(`SELECT COUNT(*) as count FROM ${table}`).get();
-  if (count === 0) {
-    const stmt = db.prepare(`INSERT INTO ${table} (name) VALUES (?)`);
-    values.forEach(v => stmt.run(v));
-  }
-};
-
-insertIfEmpty('categories', ['办公用品', '办公设备', '耗材', '其他']);
-insertIfEmpty('brands', ['得力', '晨光', '惠普']);
-insertIfEmpty('units', ['个', '盒', '箱', '包', '台']);
-
 // 数据迁移：检查并添加 brand 和 unit 列（如果不存在）
 const migrateProducts = () => {
   try {

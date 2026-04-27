@@ -31,6 +31,8 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
+  Filter,
+  Calendar,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -243,6 +245,31 @@ const App = () => {
   const [reconciliationData, setReconciliationData] = useState([]);
   const [debtRecords, setDebtRecords] = useState([]);
 
+  // 收款功能状态
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    customerId: null,
+    customerName: "",
+    amount: "",
+    discount: "0",
+    actualAmount: 0,
+    businessTime: new Date().toISOString().slice(0, 16),
+    remark: "",
+    paymentMethod: "cash",
+    transactionNo: "",
+  });
+  const [paymentRecords, setPaymentRecords] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("inventory_payment_records") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [showPaymentRecordsModal, setShowPaymentRecordsModal] = useState(false);
+  const [selectedCustomerPayments, setSelectedCustomerPayments] = useState([]);
+  const [editingPaymentId, setEditingPaymentId] = useState(null);
+  const [editPaymentForm, setEditPaymentForm] = useState(null);
+
   // 商品管理相关状态（提前声明，避免在 useEffect 中访问未声明的变量）
   const [pname, setPname] = useState("");
   const [pprice, setPprice] = useState("");
@@ -399,6 +426,279 @@ const App = () => {
       return () => clearTimeout(timer);
     }
   }, [customers]);
+
+  // 数字转中文大写金额
+  const numberToChinese = (num) => {
+    const digits = ["零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖"];
+    const units = ["", "拾", "佰", "仟", "万", "拾", "佰", "仟", "亿"];
+    
+    if (num === 0) return "零元整";
+    if (num < 0) return "负数" + numberToChinese(-num);
+    
+    let result = "";
+    const integerPart = Math.floor(num);
+    const decimalPart = Math.round((num - integerPart) * 100);
+    
+    // 处理整数部分
+    if (integerPart > 0) {
+      let str = integerPart.toString();
+      let zeroFlag = false;
+      
+      for (let i = 0; i < str.length; i++) {
+        const digit = parseInt(str[i]);
+        const unit = units[str.length - 1 - i];
+        
+        if (digit === 0) {
+          if (!zeroFlag && result.length > 0) {
+            zeroFlag = true;
+          }
+        } else {
+          if (zeroFlag) {
+            result += "零";
+            zeroFlag = false;
+          }
+          result += digits[digit] + unit;
+        }
+      }
+      
+      result += "元";
+    } else {
+      result = "零元";
+    }
+    
+    // 处理小数部分
+    if (decimalPart > 0) {
+      const jiao = Math.floor(decimalPart / 10);
+      const fen = decimalPart % 10;
+      
+      if (jiao > 0) {
+        result += digits[jiao] + "角";
+      }
+      if (fen > 0) {
+        result += digits[fen] + "分";
+      }
+    } else {
+      result += "整";
+    }
+    
+    return result;
+  };
+
+  // 打开收款弹窗
+  const openPaymentModal = (customer) => {
+    setPaymentForm({
+      customerId: customer.id,
+      customerName: customer.customerName,
+      amount: "",
+      discount: "0",
+      actualAmount: 0,
+      businessTime: new Date().toISOString().slice(0, 16),
+      remark: "",
+      paymentMethod: "cash",
+      transactionNo: "",
+    });
+    setShowPaymentModal(true);
+  };
+
+  // 打开客户收款记录弹窗
+  const openPaymentRecordsModal = (customer) => {
+    const customerPayments = paymentRecords.filter(
+      (p) => p.customerId === customer.id
+    );
+    setSelectedCustomerPayments(customerPayments);
+    setShowPaymentRecordsModal(true);
+  };
+
+  // 删除收款记录
+  const deletePaymentRecord = (paymentId) => {
+    if (!window.confirm("确认删除该收款记录？删除后将恢复对应的客户欠款。")) return;
+    
+    const payment = paymentRecords.find((p) => p.id === paymentId);
+    if (!payment) return;
+    
+    // 恢复客户欠款
+    const updatedCustomers = customers.map((c) => {
+      if (c.id === payment.customerId) {
+        const newDebt = parseFloat(c.debt || 0) + payment.actualAmount;
+        return { ...c, debt: newDebt.toString() };
+      }
+      return c;
+    });
+    setCustomers(updatedCustomers);
+    localStorage.setItem("inventory_customers", JSON.stringify(updatedCustomers));
+    
+    // 删除收款记录
+    const updatedRecords = paymentRecords.filter((p) => p.id !== paymentId);
+    setPaymentRecords(updatedRecords);
+    localStorage.setItem("inventory_payment_records", JSON.stringify(updatedRecords));
+    
+    // 更新当前显示的收款记录
+    setSelectedCustomerPayments(updatedRecords.filter((p) => p.customerId === payment.customerId));
+    
+    // 刷新财务数据
+    loadFinanceData(updatedCustomers, outRecords);
+    
+    alert("收款记录已删除，客户欠款已恢复");
+  };
+
+  // 打开编辑收款记录弹窗
+  const openEditPaymentModal = (payment) => {
+    setEditingPaymentId(payment.id);
+    setEditPaymentForm({ ...payment });
+  };
+
+  // 保存编辑的收款记录
+  const saveEditPayment = () => {
+    if (!editPaymentForm) return;
+    
+    const newAmount = parseFloat(editPaymentForm.amount);
+    const newDiscount = parseFloat(editPaymentForm.discount) || 0;
+    const newActualAmount = Math.max(0, newAmount - newDiscount);
+    
+    if (isNaN(newAmount) || newAmount <= 0) {
+      alert("收款金额必须大于0");
+      return;
+    }
+    
+    if (newDiscount < 0) {
+      alert("优惠金额不能为负数");
+      return;
+    }
+    
+    if (newDiscount > newAmount) {
+      alert("优惠金额不能大于收款金额");
+      return;
+    }
+    
+    const oldPayment = paymentRecords.find((p) => p.id === editingPaymentId);
+    if (!oldPayment) return;
+    
+    // 计算差额
+    const amountDiff = newActualAmount - oldPayment.actualAmount;
+    
+    // 更新客户欠款
+    const updatedCustomers = customers.map((c) => {
+      if (c.id === oldPayment.customerId) {
+        const newDebt = Math.max(0, parseFloat(c.debt || 0) - amountDiff);
+        return { ...c, debt: newDebt.toString() };
+      }
+      return c;
+    });
+    setCustomers(updatedCustomers);
+    localStorage.setItem("inventory_customers", JSON.stringify(updatedCustomers));
+    
+    // 更新收款记录
+    const updatedRecords = paymentRecords.map((p) => {
+      if (p.id === editingPaymentId) {
+        return {
+          ...p,
+          amount: newAmount,
+          discount: newDiscount,
+          actualAmount: newActualAmount,
+          businessTime: editPaymentForm.businessTime,
+          remark: editPaymentForm.remark,
+          paymentMethod: editPaymentForm.paymentMethod,
+          transactionNo: editPaymentForm.transactionNo,
+          updateTime: new Date().toISOString(),
+        };
+      }
+      return p;
+    });
+    setPaymentRecords(updatedRecords);
+    localStorage.setItem("inventory_payment_records", JSON.stringify(updatedRecords));
+    
+    // 更新当前显示的收款记录
+    setSelectedCustomerPayments(updatedRecords.filter((p) => p.customerId === oldPayment.customerId));
+    
+    // 关闭编辑弹窗
+    setEditingPaymentId(null);
+    setEditPaymentForm(null);
+    
+    // 刷新财务数据
+    loadFinanceData(updatedCustomers, outRecords);
+    
+    alert("收款记录已更新");
+  };
+
+  // 提交收款
+  const submitPayment = () => {
+    const amount = parseFloat(paymentForm.amount);
+    const discount = parseFloat(paymentForm.discount) || 0;
+    
+    // 数据验证
+    if (isNaN(amount) || amount <= 0) {
+      alert("收款金额必须大于0");
+      return;
+    }
+    
+    if (discount < 0) {
+      alert("优惠金额不能为负数");
+      return;
+    }
+    
+    if (discount > amount) {
+      alert("优惠金额不能大于收款金额");
+      return;
+    }
+    
+    const actualAmount = amount - discount;
+    
+    // 查找客户
+    const customer = customers.find((c) => c.id === paymentForm.customerId);
+    if (!customer) {
+      alert("客户不存在");
+      return;
+    }
+    
+    // 检查欠款余额
+    const customerDebt = debtRecords.find((d) => d.customerName === customer.name);
+    const currentDebt = customerDebt ? customerDebt.debtAmount : 0;
+    
+    if (actualAmount > currentDebt) {
+      alert(`收款金额超过客户欠款余额！\n当前欠款：¥${currentDebt.toFixed(2)}\n实际应收：¥${actualAmount.toFixed(2)}`);
+      return;
+    }
+    
+    // 生成收款记录
+    const newPaymentRecord = {
+      id: Date.now(),
+      customerId: paymentForm.customerId,
+      customerName: paymentForm.customerName,
+      amount: amount,
+      discount: discount,
+      actualAmount: actualAmount,
+      businessTime: paymentForm.businessTime,
+      remark: paymentForm.remark,
+      paymentMethod: paymentForm.paymentMethod || "cash",
+      transactionNo: paymentForm.transactionNo || "",
+      createTime: new Date().toISOString(),
+    };
+    
+    // 更新收款记录
+    const updatedRecords = [newPaymentRecord, ...paymentRecords];
+    setPaymentRecords(updatedRecords);
+    localStorage.setItem("inventory_payment_records", JSON.stringify(updatedRecords));
+    
+    // 更新客户欠款
+    const updatedCustomers = customers.map((c) => {
+      if (c.id === paymentForm.customerId) {
+        const newDebt = Math.max(0, parseFloat(c.debt || 0) - actualAmount);
+        return { ...c, debt: newDebt.toString() };
+      }
+      return c;
+    });
+    setCustomers(updatedCustomers);
+    localStorage.setItem("inventory_customers", JSON.stringify(updatedCustomers));
+    
+    // 刷新财务数据
+    loadFinanceData(updatedCustomers, outRecords);
+    
+    // 关闭弹窗
+    setShowPaymentModal(false);
+    
+    // 显示成功提示
+    alert(`收款成功！\n客户：${paymentForm.customerName}\n收款金额：¥${amount.toFixed(2)}\n优惠金额：¥${discount.toFixed(2)}\n实际应收：¥${actualAmount.toFixed(2)}`);
+  };
 
   // 库存日志状态
   const [showStockLogModal, setShowStockLogModal] = useState(false);
@@ -1220,6 +1520,8 @@ const App = () => {
                       customers={customers}
                       outRecords={outRecords}
                       products={products}
+                      openPaymentModal={openPaymentModal}
+                      openPaymentRecordsModal={openPaymentRecordsModal}
                     />
                   )}
 
@@ -1828,15 +2130,27 @@ const App = () => {
                         </thead>
                         <tbody>
                           {inRecords.length > 0 ? (
-                            inRecords.map((r) => (
-                              <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                <td className="px-4 py-3 text-gray-500">{r.productId}</td>
-                                <td className="px-4 py-3 font-medium">{r.productName}</td>
-                                <td className="px-4 py-3 text-green-600 font-medium">+{r.quantity}</td>
-                                <td className="px-4 py-3 text-gray-500">{r.remark || "-"}</td>
-                                <td className="px-4 py-3 text-gray-400">{r.time}</td>
-                              </tr>
-                            ))
+                            inRecords.map((r) => {
+                              // 从 products 数组中查找商品名称
+                              const product = products.find((p) => p.id === r.productId);
+                              const productName = product?.name || r.productName || "未知商品";
+                              return (
+                                <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                  <td className="px-4 py-3 text-gray-500">{r.productId}</td>
+                                  <td className="px-4 py-3 font-medium">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
+                                        <Package size={12} className="text-blue-600" />
+                                      </div>
+                                      {productName}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-green-600 font-medium">+{r.quantity}</td>
+                                  <td className="px-4 py-3 text-gray-500">{r.remark || "-"}</td>
+                                  <td className="px-4 py-3 text-gray-400">{r.time}</td>
+                                </tr>
+                              );
+                            })
                           ) : (
                             <tr>
                               <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
@@ -1929,11 +2243,22 @@ const App = () => {
                                   (r.paymentStatus || "unpaid") === outForm.paymentStatus;
                                 return matchRecipient && matchPayment;
                               })
-                              .map((r) => (
-                                <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                  <td className="px-4 py-3 text-gray-500">{r.productId}</td>
-                                  <td className="px-4 py-3 font-medium">{r.productName}</td>
-                                  <td className="px-4 py-3 text-red-500 font-medium">-{Math.abs(r.quantity)}</td>
+                              .map((r) => {
+                                // 从 products 数组中查找商品名称
+                                const product = products.find((p) => p.id === r.productId);
+                                const productName = product?.name || r.productName || "未知商品";
+                                return (
+                                  <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                    <td className="px-4 py-3 text-gray-500">{r.productId}</td>
+                                    <td className="px-4 py-3 font-medium">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
+                                          <Package size={12} className="text-blue-600" />
+                                        </div>
+                                        {productName}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-red-500 font-medium">-{Math.abs(r.quantity)}</td>
                                   <td className="px-4 py-3">
                                     {r.recipientName ? (
                                       <div className="flex items-center gap-1.5">
@@ -1963,7 +2288,7 @@ const App = () => {
                                   <td className="px-4 py-3 text-gray-500">{r.remark || "-"}</td>
                                   <td className="px-4 py-3 text-gray-400">{r.time}</td>
                                 </tr>
-                              ))}
+                              )})}
                             {outRecords.filter((r) => {
                               const matchRecipient = !recipientSearchText ||
                                 (r.recipientName && r.recipientName.includes(recipientSearchText));
@@ -2206,52 +2531,164 @@ const App = () => {
               </div>
             </div>
 
-            {/* 交易记录 */}
-            <h5 className="font-medium text-gray-800 mb-2">交易记录</h5>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 text-gray-600">
-                    <th className="px-3 py-2 text-left font-medium">商品</th>
-                    <th className="px-3 py-2 text-right font-medium">数量</th>
-                    <th className="px-3 py-2 text-right font-medium">单价</th>
-                    <th className="px-3 py-2 text-right font-medium">金额</th>
-                    <th className="px-3 py-2 text-left font-medium">付款状态</th>
-                    <th className="px-3 py-2 text-left font-medium">时间</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedCustomerDetail.records?.map((record) => {
-                    const product = products.find((p) => p.id === record.productId);
-                    const amount = product ? product.price * Math.abs(record.quantity) : 0;
-                    return (
-                      <tr key={record.id} className="border-b border-gray-100">
-                        <td className="px-3 py-2">{record.productName || product?.name || "未知商品"}</td>
-                        <td className="px-3 py-2 text-right">{Math.abs(record.quantity)}</td>
-                        <td className="px-3 py-2 text-right">¥{product?.price.toFixed(2) || "0.00"}</td>
-                        <td className="px-3 py-2 text-right font-medium">¥{amount.toFixed(2)}</td>
-                        <td className="px-3 py-2">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
-                            record.paymentStatus === "paid"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-red-100 text-red-700"
-                          }`}>
-                            {record.paymentStatus === "paid" ? "已付款" : "未付款"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-gray-500 text-xs">{record.time || record.createTime}</td>
-                      </tr>
-                    );
-                  })}
-                  {(!selectedCustomerDetail.records || selectedCustomerDetail.records.length === 0) && (
-                    <tr>
-                      <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
-                        暂无交易记录
-                      </td>
-                    </tr>
+            {/* 收款记录 */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-2">
+                <h5 className="font-medium text-gray-800">收款记录</h5>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">
+                    共 {paymentRecords.filter((p) => p.customerId === selectedCustomerDetail.id).length} 笔
+                  </span>
+                  {selectedCustomerDetail.unpaidAmount > 0 && (
+                    <button
+                      onClick={() => {
+                        openPaymentModal({
+                          id: selectedCustomerDetail.id,
+                          customerName: selectedCustomerDetail.customerName,
+                        });
+                      }}
+                      className="px-3 py-1 text-xs text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors flex items-center gap-1"
+                    >
+                      <DollarSign size={12} /> 新增收款
+                    </button>
                   )}
-                </tbody>
-              </table>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-600">
+                      <th className="px-3 py-2 text-left font-medium">收款日期</th>
+                      <th className="px-3 py-2 text-right font-medium">收款金额</th>
+                      <th className="px-3 py-2 text-right font-medium">优惠</th>
+                      <th className="px-3 py-2 text-right font-medium">实际应收</th>
+                      <th className="px-3 py-2 text-left font-medium">支付方式</th>
+                      <th className="px-3 py-2 text-left font-medium">流水号</th>
+                      <th className="px-3 py-2 text-left font-medium">备注</th>
+                      <th className="px-3 py-2 text-right font-medium">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentRecords
+                      .filter((p) => p.customerId === selectedCustomerDetail.id)
+                      .sort((a, b) => new Date(b.businessTime) - new Date(a.businessTime))
+                      .map((payment) => (
+                        <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="px-3 py-2 text-gray-600 text-xs">
+                            {new Date(payment.businessTime).toLocaleString()}
+                          </td>
+                          <td className="px-3 py-2 text-right font-medium">¥{payment.amount.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right text-orange-600">
+                            ¥{payment.discount?.toFixed(2) || "0.00"}
+                          </td>
+                          <td className="px-3 py-2 text-right font-bold text-green-600">
+                            ¥{payment.actualAmount.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
+                              payment.paymentMethod === "cash"
+                                ? "bg-green-100 text-green-700"
+                                : payment.paymentMethod === "bank"
+                                ? "bg-blue-100 text-blue-700"
+                                : payment.paymentMethod === "wechat"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : payment.paymentMethod === "alipay"
+                                ? "bg-cyan-100 text-cyan-700"
+                                : "bg-gray-100 text-gray-700"
+                            }`}>
+                              {payment.paymentMethod === "cash" && "现金"}
+                              {payment.paymentMethod === "bank" && "银行"}
+                              {payment.paymentMethod === "wechat" && "微信"}
+                              {payment.paymentMethod === "alipay" && "支付宝"}
+                              {payment.paymentMethod === "other" && "其他"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-gray-500 text-xs font-mono">
+                            {payment.transactionNo || "-"}
+                          </td>
+                          <td className="px-3 py-2 text-gray-500 text-xs max-w-[100px] truncate">
+                            {payment.remark || "-"}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => openEditPaymentModal(payment)}
+                                className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                                title="编辑"
+                              >
+                                <Edit3 size={12} />
+                              </button>
+                              <button
+                                onClick={() => deletePaymentRecord(payment.id)}
+                                className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                                title="删除"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    {paymentRecords.filter((p) => p.customerId === selectedCustomerDetail.id).length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
+                          暂无收款记录
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* 交易记录 */}
+            <div className="mt-6">
+              <h5 className="font-medium text-gray-800 mb-2">交易记录</h5>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-600">
+                      <th className="px-3 py-2 text-left font-medium">商品</th>
+                      <th className="px-3 py-2 text-right font-medium">数量</th>
+                      <th className="px-3 py-2 text-right font-medium">单价</th>
+                      <th className="px-3 py-2 text-right font-medium">金额</th>
+                      <th className="px-3 py-2 text-left font-medium">付款状态</th>
+                      <th className="px-3 py-2 text-left font-medium">时间</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedCustomerDetail.records?.map((record) => {
+                      const product = products.find((p) => p.id === record.productId);
+                      const amount = product ? product.price * Math.abs(record.quantity) : 0;
+                      return (
+                        <tr key={record.id} className="border-b border-gray-100">
+                          <td className="px-3 py-2">{record.productName || product?.name || "未知商品"}</td>
+                          <td className="px-3 py-2 text-right">{Math.abs(record.quantity)}</td>
+                          <td className="px-3 py-2 text-right">¥{product?.price.toFixed(2) || "0.00"}</td>
+                          <td className="px-3 py-2 text-right font-medium">¥{amount.toFixed(2)}</td>
+                          <td className="px-3 py-2">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
+                              record.paymentStatus === "paid"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-red-100 text-red-700"
+                            }`}>
+                              {record.paymentStatus === "paid" ? "已付款" : "未付款"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-gray-500 text-xs">{record.time || record.createTime}</td>
+                        </tr>
+                      );
+                    })}
+                    {(!selectedCustomerDetail.records || selectedCustomerDetail.records.length === 0) && (
+                      <tr>
+                        <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
+                          暂无交易记录
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div className="flex justify-end pt-4">
@@ -2260,6 +2697,328 @@ const App = () => {
                 className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 收款弹窗 */}
+      <PaymentModal
+        show={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        paymentForm={paymentForm}
+        setPaymentForm={setPaymentForm}
+        onSubmit={submitPayment}
+        numberToChinese={numberToChinese}
+      />
+
+      {/* 收款记录列表弹窗 */}
+      {showPaymentRecordsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl relative max-h-[90vh] overflow-hidden flex flex-col">
+            {/* 标题栏 */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <Receipt size={20} className="text-purple-600" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-gray-900">收款记录</h4>
+                  <p className="text-xs text-gray-500">
+                    {selectedCustomerPayments.length > 0 
+                      ? `${selectedCustomerPayments[0]?.customerName} - 共 ${selectedCustomerPayments.length} 笔收款`
+                      : "暂无收款记录"
+                    }
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPaymentRecordsModal(false);
+                  setSelectedCustomerPayments([]);
+                }}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* 收款记录列表 */}
+            <div className="flex-1 overflow-auto px-6 py-4">
+              {selectedCustomerPayments.length > 0 ? (
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-600">
+                        <th className="px-4 py-3 text-left font-medium">收款日期</th>
+                        <th className="px-4 py-3 text-right font-medium">收款金额</th>
+                        <th className="px-4 py-3 text-right font-medium">优惠金额</th>
+                        <th className="px-4 py-3 text-right font-medium">实际应收</th>
+                        <th className="px-4 py-3 text-left font-medium">支付方式</th>
+                        <th className="px-4 py-3 text-left font-medium">交易流水号</th>
+                        <th className="px-4 py-3 text-left font-medium">备注</th>
+                        <th className="px-4 py-3 text-right font-medium">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {selectedCustomerPayments.map((payment) => (
+                        <tr key={payment.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-gray-600">
+                            {new Date(payment.businessTime).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium text-gray-800">
+                            ¥{payment.amount.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-orange-600">
+                            ¥{payment.discount?.toFixed(2) || "0.00"}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-green-600">
+                            ¥{payment.actualAmount.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
+                              payment.paymentMethod === "cash"
+                                ? "bg-green-100 text-green-700"
+                                : payment.paymentMethod === "bank"
+                                ? "bg-blue-100 text-blue-700"
+                                : payment.paymentMethod === "wechat"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : payment.paymentMethod === "alipay"
+                                ? "bg-cyan-100 text-cyan-700"
+                                : "bg-gray-100 text-gray-700"
+                            }`}>
+                              {payment.paymentMethod === "cash" && "💵 现金"}
+                              {payment.paymentMethod === "bank" && "🏦 银行转账"}
+                              {payment.paymentMethod === "wechat" && "💚 微信支付"}
+                              {payment.paymentMethod === "alipay" && "🔵 支付宝"}
+                              {payment.paymentMethod === "other" && "📝 其他"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-500 font-mono text-xs">
+                            {payment.transactionNo || "-"}
+                          </td>
+                          <td className="px-4 py-3 text-gray-500 text-xs max-w-[150px] truncate">
+                            {payment.remark || "-"}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => openEditPaymentModal(payment)}
+                                className="p-1.5 text-gray-400 hover:text-blue-500 transition-colors"
+                                title="编辑"
+                              >
+                                <Edit3 size={14} />
+                              </button>
+                              <button
+                                onClick={() => deletePaymentRecord(payment.id)}
+                                className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                                title="删除"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                  <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-3">
+                    <Receipt size={32} className="text-gray-300" />
+                  </div>
+                  <p className="text-sm">暂无收款记录</p>
+                  <p className="text-xs mt-1">该客户暂未有收款记录</p>
+                </div>
+              )}
+            </div>
+
+            {/* 底部统计 */}
+            {selectedCustomerPayments.length > 0 && (
+              <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-6">
+                    <div>
+                      <p className="text-xs text-gray-500">收款笔数</p>
+                      <p className="text-lg font-bold text-gray-800">{selectedCustomerPayments.length} 笔</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">收款总额</p>
+                      <p className="text-lg font-bold text-green-600">
+                        ¥{selectedCustomerPayments.reduce((sum, p) => sum + p.amount, 0).toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">优惠总额</p>
+                      <p className="text-lg font-bold text-orange-600">
+                        ¥{selectedCustomerPayments.reduce((sum, p) => sum + (p.discount || 0), 0).toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">实际应收总额</p>
+                      <p className="text-lg font-bold text-blue-600">
+                        ¥{selectedCustomerPayments.reduce((sum, p) => sum + p.actualAmount, 0).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowPaymentRecordsModal(false);
+                      setSelectedCustomerPayments([]);
+                    }}
+                    className="px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
+                  >
+                    关闭
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 编辑收款记录弹窗 */}
+      {editingPaymentId && editPaymentForm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative overflow-hidden">
+            {/* 标题栏 */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <Edit3 size={20} className="text-blue-600" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-gray-900">编辑收款记录</h4>
+                  <p className="text-xs text-gray-500">{editPaymentForm.customerName}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingPaymentId(null);
+                  setEditPaymentForm(null);
+                }}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* 表单内容 */}
+            <div className="px-6 py-6 space-y-5">
+              {/* 收款金额 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  收款金额 <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={editPaymentForm.amount}
+                    onChange={(e) => setEditPaymentForm({ ...editPaymentForm, amount: e.target.value })}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* 优惠金额 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  优惠金额 <span className="text-gray-400 font-normal">(选填)</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editPaymentForm.discount || "0"}
+                    onChange={(e) => setEditPaymentForm({ ...editPaymentForm, discount: e.target.value })}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* 支付方式 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  支付方式 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={editPaymentForm.paymentMethod || "cash"}
+                  onChange={(e) => setEditPaymentForm({ ...editPaymentForm, paymentMethod: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                >
+                  <option value="cash">💵 现金</option>
+                  <option value="bank">🏦 银行转账</option>
+                  <option value="wechat">💚 微信支付</option>
+                  <option value="alipay">🔵 支付宝</option>
+                  <option value="other">📝 其他</option>
+                </select>
+              </div>
+
+              {/* 交易流水号 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  交易流水号 <span className="text-gray-400 font-normal">(选填)</span>
+                </label>
+                <input
+                  type="text"
+                  value={editPaymentForm.transactionNo || ""}
+                  onChange={(e) => setEditPaymentForm({ ...editPaymentForm, transactionNo: e.target.value })}
+                  placeholder="请输入交易流水号"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                />
+              </div>
+
+              {/* 业务时间 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  业务时间 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editPaymentForm.businessTime}
+                  onChange={(e) => setEditPaymentForm({ ...editPaymentForm, businessTime: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                />
+              </div>
+
+              {/* 备注 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  备注 <span className="text-gray-400 font-normal">(选填)</span>
+                </label>
+                <textarea
+                  value={editPaymentForm.remark || ""}
+                  onChange={(e) => setEditPaymentForm({ ...editPaymentForm, remark: e.target.value })}
+                  placeholder="请输入备注信息"
+                  rows={3}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all resize-none"
+                />
+              </div>
+            </div>
+
+            {/* 底部按钮 */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex items-center justify-end gap-3">
+              <button
+                onClick={() => {
+                  setEditingPaymentId(null);
+                  setEditPaymentForm(null);
+                }}
+                className="px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
+              >
+                取消
+              </button>
+              <button
+                onClick={saveEditPayment}
+                className="px-6 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all duration-200 shadow-sm flex items-center gap-2"
+              >
+                <CheckCircle2 size={16} /> 保存修改
               </button>
             </div>
           </div>
@@ -2866,6 +3625,8 @@ const FinanceModule = ({
   customers,
   outRecords,
   _products,
+  openPaymentModal,
+  openPaymentRecordsModal,
 }) => {
   // 对账汇总 - 计算关键指标
   const totalReceivable = reconciliationData.reduce((sum, r) => sum + r.totalAmount, 0);
@@ -3298,12 +4059,28 @@ const FinanceModule = ({
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => viewCustomerDetail(item)}
-                        className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        查看详情
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        {item.unpaidAmount > 0 && (
+                          <button
+                            onClick={() => openPaymentModal(item)}
+                            className="px-3 py-1.5 text-sm text-green-600 hover:bg-green-50 rounded-lg transition-colors flex items-center gap-1"
+                          >
+                            <DollarSign size={14} /> 收款
+                          </button>
+                        )}
+                        <button
+                          onClick={() => openPaymentRecordsModal(item)}
+                          className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg transition-colors flex items-center gap-1"
+                        >
+                          <Receipt size={14} /> 收款记录
+                        </button>
+                        <button
+                          onClick={() => viewCustomerDetail(item)}
+                          className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          查看详情
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -3569,6 +4346,191 @@ const FinanceModule = ({
   }
 
   return null;
+};
+
+// 收款弹窗组件
+const PaymentModal = ({ show, onClose, paymentForm, setPaymentForm, onSubmit, numberToChinese }) => {
+  if (!show) return null;
+
+  const amount = parseFloat(paymentForm.amount) || 0;
+  const discount = parseFloat(paymentForm.discount) || 0;
+  const actualAmount = Math.max(0, amount - discount);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative overflow-hidden">
+        {/* 标题栏 */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-white">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+              <DollarSign size={20} className="text-green-600" />
+            </div>
+            <div>
+              <h4 className="text-lg font-bold text-gray-900">客户收款</h4>
+              <p className="text-xs text-gray-500">{paymentForm.customerName}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* 表单内容 */}
+        <div className="px-6 py-6 space-y-5">
+          {/* 收款金额 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              收款金额 <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={paymentForm.amount}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setPaymentForm({ ...paymentForm, amount: val });
+                }}
+                placeholder="请输入收款金额"
+                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
+              />
+            </div>
+            {amount > 0 && (
+              <p className="mt-1.5 text-xs text-gray-500">
+                大写：{numberToChinese(amount)}
+              </p>
+            )}
+          </div>
+
+          {/* 优惠金额 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              优惠金额 <span className="text-gray-400 font-normal">(选填)</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={paymentForm.discount}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setPaymentForm({ ...paymentForm, discount: val });
+                }}
+                placeholder="0.00"
+                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
+              />
+            </div>
+          </div>
+
+          {/* 实际应收金额 */}
+          <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-4 border border-green-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">实际应收金额</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">
+                  ¥{actualAmount.toFixed(2)}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center text-white">
+                <Receipt size={24} />
+              </div>
+            </div>
+            {actualAmount > 0 && (
+              <p className="mt-2 text-xs text-gray-500">
+                大写：{numberToChinese(actualAmount)}
+              </p>
+            )}
+          </div>
+
+          {/* 支付方式 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              支付方式 <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={paymentForm.paymentMethod}
+              onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
+            >
+              <option value="cash">💵 现金</option>
+              <option value="bank">🏦 银行转账</option>
+              <option value="wechat">💚 微信支付</option>
+              <option value="alipay">🔵 支付宝</option>
+              <option value="other">📝 其他</option>
+            </select>
+          </div>
+
+          {/* 交易流水号 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              交易流水号 <span className="text-gray-400 font-normal">(选填)</span>
+            </label>
+            <input
+              type="text"
+              value={paymentForm.transactionNo}
+              onChange={(e) => setPaymentForm({ ...paymentForm, transactionNo: e.target.value })}
+              placeholder="请输入交易流水号"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
+            />
+          </div>
+
+          {/* 业务时间 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              业务时间 <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="datetime-local"
+                value={paymentForm.businessTime}
+                onChange={(e) => setPaymentForm({ ...paymentForm, businessTime: e.target.value })}
+                className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
+              />
+            </div>
+          </div>
+
+          {/* 备注 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              备注 <span className="text-gray-400 font-normal">(选填)</span>
+            </label>
+            <textarea
+              value={paymentForm.remark}
+              onChange={(e) => setPaymentForm({ ...paymentForm, remark: e.target.value })}
+              placeholder="请输入备注信息"
+              rows={3}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all resize-none"
+            />
+          </div>
+        </div>
+
+        {/* 底部按钮 */}
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex items-center justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
+          >
+            取消
+          </button>
+          <button
+            onClick={onSubmit}
+            disabled={!amount || amount <= 0}
+            className="px-6 py-2.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-xl transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <CheckCircle2 size={16} /> 确认收款
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default App;
