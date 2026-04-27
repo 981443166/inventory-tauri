@@ -2456,113 +2456,205 @@ const App = () => {
 
       {/* 库存日志弹窗 */}
       {showStockLogModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-6 relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setShowStockLogModal(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-            >
-              <X size={20} />
-            </button>
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">库存变动日志</h4>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl relative max-h-[90vh] overflow-hidden flex flex-col">
+            {/* 标题栏 */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <Clock size={20} className="text-blue-600" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-gray-900">库存变动日志</h4>
+                  <p className="text-xs text-gray-500">记录所有库存入库与出库操作</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowStockLogModal(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200"
+              >
+                <X size={18} />
+              </button>
+            </div>
             
             {/* 筛选条件 */}
-            <div className="flex flex-wrap gap-3 mb-4">
-              <select
-                value={logFilterType}
-                onChange={(e) => {
-                  setLogFilterType(e.target.value);
-                  setStockLogs(getStockLogs({ 
-                    type: e.target.value === "all" ? null : e.target.value 
-                  }));
-                }}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
-              >
-                <option value="all">全部类型</option>
-                <option value="in">入库</option>
-                <option value="out">出库</option>
-              </select>
-              <input
-                type="date"
-                value={logFilterDateStart}
-                onChange={(e) => setLogFilterDateStart(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                placeholder="开始日期"
-              />
-              <input
-                type="date"
-                value={logFilterDateEnd}
-                onChange={(e) => setLogFilterDateEnd(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                placeholder="结束日期"
-              />
-              <button
-                onClick={() => {
-                  setLogFilterType("all");
-                  setLogFilterDateStart("");
-                  setLogFilterDateEnd("");
-                  setStockLogs(getStockLogs({}));
-                }}
-                className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                重置筛选
-              </button>
+            <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-100">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-gray-200 shadow-sm">
+                  <Filter size={14} className="text-gray-400" />
+                  <select
+                    value={logFilterType}
+                    onChange={(e) => {
+                      setLogFilterType(e.target.value);
+                      setStockLogs(getStockLogs({ 
+                        type: e.target.value === "all" ? null : e.target.value 
+                      }));
+                    }}
+                    className="text-sm bg-transparent border-none outline-none text-gray-700 cursor-pointer"
+                  >
+                    <option value="all">全部类型</option>
+                    <option value="in">📥 入库</option>
+                    <option value="out">📤 出库</option>
+                  </select>
+                </div>
+                
+                <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-gray-200 shadow-sm">
+                  <Calendar size={14} className="text-gray-400" />
+                  <input
+                    type="date"
+                    value={logFilterDateStart}
+                    onChange={(e) => setLogFilterDateStart(e.target.value)}
+                    className="text-sm bg-transparent border-none outline-none text-gray-700"
+                  />
+                  <span className="text-gray-300">-</span>
+                  <input
+                    type="date"
+                    value={logFilterDateEnd}
+                    onChange={(e) => setLogFilterDateEnd(e.target.value)}
+                    className="text-sm bg-transparent border-none outline-none text-gray-700"
+                  />
+                </div>
+
+                <div className="flex-1" />
+                
+                <button
+                  onClick={() => {
+                    setLogFilterType("all");
+                    setLogFilterDateStart("");
+                    setLogFilterDateEnd("");
+                    setStockLogs(getStockLogs({}));
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200"
+                >
+                  <RefreshCw size={14} />
+                  重置筛选
+                </button>
+              </div>
+            </div>
+
+            {/* 统计卡片 */}
+            <div className="px-6 py-3 bg-white border-b border-gray-100">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-3 border border-blue-100">
+                  <p className="text-xs text-blue-600 font-medium">总记录数</p>
+                  <p className="text-xl font-bold text-gray-800">{stockLogs.length}</p>
+                </div>
+                <div className="bg-gradient-to-br from-green-50 to-green-100/50 rounded-xl p-3 border border-green-100">
+                  <p className="text-xs text-green-600 font-medium">入库次数</p>
+                  <p className="text-xl font-bold text-gray-800">
+                    {stockLogs.filter(l => l.type === "in").length}
+                  </p>
+                </div>
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 rounded-xl p-3 border border-orange-100">
+                  <p className="text-xs text-orange-600 font-medium">出库次数</p>
+                  <p className="text-xl font-bold text-gray-800">
+                    {stockLogs.filter(l => l.type === "out").length}
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* 日志表格 */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 text-gray-600">
-                    <th className="px-3 py-2 text-left font-medium">时间</th>
-                    <th className="px-3 py-2 text-left font-medium">类型</th>
-                    <th className="px-3 py-2 text-left font-medium">商品</th>
-                    <th className="px-3 py-2 text-right font-medium">数量</th>
-                    <th className="px-3 py-2 text-right font-medium">变动前</th>
-                    <th className="px-3 py-2 text-right font-medium">变动后</th>
-                    <th className="px-3 py-2 text-left font-medium">操作人</th>
-                    <th className="px-3 py-2 text-left font-medium">备注</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stockLogs.length > 0 ? (
-                    stockLogs.map((log) => (
-                      <tr key={log.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-3 py-2 text-gray-500 text-xs">
-                          {new Date(log.createTime).toLocaleString()}
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
-                            log.type === "in"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-orange-100 text-orange-700"
-                          }`}>
-                            {log.type === "in" ? "入库" : "出库"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 font-medium">{log.productName}</td>
-                        <td className="px-3 py-2 text-right">{log.quantity}</td>
-                        <td className="px-3 py-2 text-right text-gray-500">{log.beforeStock}</td>
-                        <td className="px-3 py-2 text-right font-medium">{log.afterStock}</td>
-                        <td className="px-3 py-2 text-gray-500">{log.operator}</td>
-                        <td className="px-3 py-2 text-gray-500 text-xs">{log.remark || "-"}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={8} className="px-3 py-8 text-center text-gray-500">
-                        暂无库存变动记录
-                      </td>
+            <div className="flex-1 overflow-auto px-6 py-4">
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50/80 text-gray-600 border-b border-gray-200">
+                      <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">时间</th>
+                      <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">类型</th>
+                      <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">商品</th>
+                      <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wider">数量</th>
+                      <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wider">变动前</th>
+                      <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wider">变动后</th>
+                      <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">操作人</th>
+                      <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">备注</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {stockLogs.length > 0 ? (
+                      stockLogs.map((log, index) => (
+                        <tr 
+                          key={log.id} 
+                          className={`hover:bg-blue-50/30 transition-colors duration-150 ${
+                            index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                          }`}
+                        >
+                          <td className="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <Clock size={12} className="text-gray-400" />
+                              {new Date(log.createTime).toLocaleString()}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                              log.type === "in"
+                                ? "bg-green-100 text-green-700 border border-green-200"
+                                : "bg-orange-100 text-orange-700 border border-orange-200"
+                            }`}>
+                              {log.type === "in" ? (
+                                <><ArrowUpRight size={12} />入库</>
+                              ) : (
+                                <><ArrowDownRight size={12} />出库</>
+                              )}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 bg-gray-100 rounded-lg flex items-center justify-center">
+                                <Package size={12} className="text-gray-500" />
+                              </div>
+                              <span className="font-medium text-gray-800">{log.productName}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className={`font-bold ${
+                              log.type === "in" ? "text-green-600" : "text-orange-600"
+                            }`}>
+                              {log.type === "in" ? "+" : "-"}{log.quantity}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-500">{log.beforeStock}</td>
+                          <td className="px-4 py-3 text-right">
+                            <span className="font-bold text-gray-800">{log.afterStock}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1.5">
+                              <User size={12} className="text-gray-400" />
+                              <span className="text-gray-600">{log.operator}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-500 text-xs max-w-[150px] truncate">
+                            {log.remark || "-"}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-12 text-center">
+                          <div className="flex flex-col items-center gap-3 text-gray-400">
+                            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center">
+                              <Clock size={32} className="text-gray-300" />
+                            </div>
+                            <p className="text-sm">暂无库存变动记录</p>
+                            <p className="text-xs">进行入库或出库操作后将显示在这里</p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            <div className="flex justify-end pt-4">
+            {/* 底部操作栏 */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                共 <span className="font-semibold text-gray-700">{stockLogs.length}</span> 条记录
+                {logFilterType !== "all" && ` · 已筛选: ${logFilterType === "in" ? "入库" : "出库"}`}
+              </p>
               <button
                 onClick={() => setShowStockLogModal(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 rounded-xl transition-all duration-200 shadow-sm"
               >
                 关闭
               </button>
