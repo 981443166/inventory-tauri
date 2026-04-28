@@ -97,20 +97,48 @@ app.delete('/api/units/:id', (req, res) => {
 
 // ---------- 出入库记录 ----------
 app.get('/api/records', (req, res) => {
-  const { type } = req.query; // 'in' 或 'out'
-  if (!type) return res.status(400).json({ error: '缺少参数' });
-  const rows = db.prepare(`
-    SELECT r.id, r.productId, p.name as productName, r.quantity, r.remark, r.createTime
+  const { type, productId, startDate, endDate, keyword } = req.query;
+  
+  let sql = `
+    SELECT r.id, r.productId, p.name as productName, p.category, p.brand, p.unit,
+           r.type, r.quantity, r.beforeStock, r.afterStock, r.operator,
+           r.sourceLocation, r.targetLocation, r.relatedOrderNo, r.remark, r.createTime
     FROM inventory_records r
     JOIN products p ON r.productId = p.id
-    WHERE r.type = ?
-    ORDER BY r.id DESC
-  `).all(type);
+    WHERE 1=1
+  `;
+  const params = [];
+  
+  if (type && type !== 'all') {
+    sql += ' AND r.type = ?';
+    params.push(type);
+  }
+  if (productId) {
+    sql += ' AND r.productId = ?';
+    params.push(productId);
+  }
+  if (startDate) {
+    sql += ' AND r.createTime >= ?';
+    params.push(startDate + ' 00:00:00');
+  }
+  if (endDate) {
+    sql += ' AND r.createTime <= ?';
+    params.push(endDate + ' 23:59:59');
+  }
+  if (keyword) {
+    sql += ' AND (p.name LIKE ? OR p.category LIKE ? OR r.remark LIKE ? OR r.relatedOrderNo LIKE ?)';
+    const likeKeyword = '%' + keyword + '%';
+    params.push(likeKeyword, likeKeyword, likeKeyword, likeKeyword);
+  }
+  
+  sql += ' ORDER BY r.id DESC';
+  
+  const rows = db.prepare(sql).all(...params);
   res.json(rows);
 });
 
 app.post('/api/records', (req, res) => {
-  const { productId, quantity, remark } = req.body;
+  const { productId, quantity, remark, operator, sourceLocation, targetLocation, relatedOrderNo } = req.body;
   const type = quantity > 0 ? 'in' : 'out';
   const absQty = Math.abs(quantity);
   const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -122,15 +150,20 @@ app.post('/api/records', (req, res) => {
     return res.status(400).json({ error: '库存不足' });
   }
 
+  const beforeStock = product.stock;
+  const afterStock = type === 'in' ? beforeStock + absQty : beforeStock - absQty;
+
   const updateStock = type === 'in'
     ? db.prepare('UPDATE products SET stock = stock + ?, updateTime = ? WHERE id = ?')
     : db.prepare('UPDATE products SET stock = stock - ?, updateTime = ? WHERE id = ?');
   updateStock.run(absQty, now, productId);
 
-  db.prepare('INSERT INTO inventory_records (productId, type, quantity, remark, createTime) VALUES (?, ?, ?, ?, ?)')
-    .run(productId, type, quantity, remark || '', now);
+  db.prepare(`INSERT INTO inventory_records 
+    (productId, type, quantity, beforeStock, afterStock, operator, sourceLocation, targetLocation, relatedOrderNo, remark, createTime) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(productId, type, quantity, beforeStock, afterStock, operator || '', sourceLocation || '', targetLocation || '', relatedOrderNo || '', remark || '', now);
 
-  res.json({ success: true });
+  res.json({ success: true, beforeStock, afterStock });
 });
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

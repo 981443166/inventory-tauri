@@ -34,8 +34,14 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS inventory_records (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     productId INTEGER NOT NULL,
-    type TEXT NOT NULL CHECK(type IN ('in','out')),
+    type TEXT NOT NULL CHECK(type IN ('in','out','transfer','check')),
     quantity INTEGER NOT NULL,
+    beforeStock INTEGER DEFAULT 0,
+    afterStock INTEGER DEFAULT 0,
+    operator TEXT,
+    sourceLocation TEXT,
+    targetLocation TEXT,
+    relatedOrderNo TEXT,
     remark TEXT,
     createTime TEXT NOT NULL,
     FOREIGN KEY (productId) REFERENCES products(id)

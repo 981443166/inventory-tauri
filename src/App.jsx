@@ -2481,7 +2481,7 @@ const App = () => {
       {/* 客户详情弹窗 */}
       {showCustomerDetailModal && selectedCustomerDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl p-6 relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setShowCustomerDetailModal(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
@@ -2906,40 +2906,40 @@ const App = () => {
             </div>
 
             {/* 表单内容 */}
-            <div className="px-6 py-6 space-y-5">
-              {/* 收款金额 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  收款金额 <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    value={editPaymentForm.amount}
-                    onChange={(e) => setEditPaymentForm({ ...editPaymentForm, amount: e.target.value })}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
-                  />
+            <div className="px-6 py-4 space-y-5">
+              {/* 收款金额 + 优惠金额 */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    收款金额 <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={editPaymentForm.amount}
+                      onChange={(e) => setEditPaymentForm({ ...editPaymentForm, amount: e.target.value })}
+                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                    />
+                  </div>
                 </div>
-              </div>
-
-              {/* 优惠金额 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  优惠金额 <span className="text-gray-400 font-normal">(选填)</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={editPaymentForm.discount || "0"}
-                    onChange={(e) => setEditPaymentForm({ ...editPaymentForm, discount: e.target.value })}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
-                  />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    优惠金额 <span className="text-gray-400 font-normal">(选填)</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editPaymentForm.discount || "0"}
+                      onChange={(e) => setEditPaymentForm({ ...editPaymentForm, discount: e.target.value })}
+                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -2959,20 +2959,6 @@ const App = () => {
                   <option value="alipay">🔵 支付宝</option>
                   <option value="other">📝 其他</option>
                 </select>
-              </div>
-
-              {/* 交易流水号 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  交易流水号 <span className="text-gray-400 font-normal">(选填)</span>
-                </label>
-                <input
-                  type="text"
-                  value={editPaymentForm.transactionNo || ""}
-                  onChange={(e) => setEditPaymentForm({ ...editPaymentForm, transactionNo: e.target.value })}
-                  placeholder="请输入交易流水号"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
-                />
               </div>
 
               {/* 业务时间 */}
@@ -4379,53 +4365,53 @@ const PaymentModal = ({ show, onClose, paymentForm, setPaymentForm, onSubmit, nu
         </div>
 
         {/* 表单内容 */}
-        <div className="px-6 py-6 space-y-5">
-          {/* 收款金额 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              收款金额 <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={paymentForm.amount}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setPaymentForm({ ...paymentForm, amount: val });
-                }}
-                placeholder="请输入收款金额"
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
-              />
+        <div className="px-6 py-4 space-y-5">
+          {/* 收款金额 + 优惠金额 */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                收款金额 <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={paymentForm.amount}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPaymentForm({ ...paymentForm, amount: val });
+                  }}
+                  placeholder="请输入收款金额"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
+                />
+              </div>
+              {amount > 0 && (
+                <p className="mt-1.5 text-xs text-gray-500">
+                  大写：{numberToChinese(amount)}
+                </p>
+              )}
             </div>
-            {amount > 0 && (
-              <p className="mt-1.5 text-xs text-gray-500">
-                大写：{numberToChinese(amount)}
-              </p>
-            )}
-          </div>
-
-          {/* 优惠金额 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              优惠金额 <span className="text-gray-400 font-normal">(选填)</span>
-            </label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={paymentForm.discount}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setPaymentForm({ ...paymentForm, discount: val });
-                }}
-                placeholder="0.00"
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
-              />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                优惠金额 <span className="text-gray-400 font-normal">(选填)</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={paymentForm.discount}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPaymentForm({ ...paymentForm, discount: val });
+                  }}
+                  placeholder="0.00"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
+                />
+              </div>
             </div>
           </div>
 
@@ -4465,20 +4451,6 @@ const PaymentModal = ({ show, onClose, paymentForm, setPaymentForm, onSubmit, nu
               <option value="alipay">🔵 支付宝</option>
               <option value="other">📝 其他</option>
             </select>
-          </div>
-
-          {/* 交易流水号 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              交易流水号 <span className="text-gray-400 font-normal">(选填)</span>
-            </label>
-            <input
-              type="text"
-              value={paymentForm.transactionNo}
-              onChange={(e) => setPaymentForm({ ...paymentForm, transactionNo: e.target.value })}
-              placeholder="请输入交易流水号"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
-            />
           </div>
 
           {/* 业务时间 */}

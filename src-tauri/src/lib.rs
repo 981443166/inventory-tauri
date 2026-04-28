@@ -58,6 +58,7 @@ fn init_db_tables(conn: &Connection) -> Result<()> {
             product_id INTEGER NOT NULL,
             quantity INTEGER NOT NULL,
             remark TEXT,
+            supplier_name TEXT DEFAULT '',
             create_time TEXT NOT NULL
         )",
         [],
@@ -69,10 +70,40 @@ fn init_db_tables(conn: &Connection) -> Result<()> {
             product_id INTEGER NOT NULL,
             quantity INTEGER NOT NULL,
             remark TEXT,
+            recipient_name TEXT DEFAULT '',
             create_time TEXT NOT NULL
         )",
         [],
     )?;
+
+    // 库存流水表
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS stock_flow (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL,
+            product_name TEXT NOT NULL,
+            type TEXT NOT NULL,
+            quantity INTEGER NOT NULL,
+            before_stock INTEGER NOT NULL,
+            after_stock INTEGER NOT NULL,
+            destination TEXT DEFAULT '',
+            operator TEXT NOT NULL,
+            remark TEXT,
+            create_time TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // 迁移：为已有表添加新列（如果不存在）
+    let migrations = [
+        "ALTER TABLE in_records ADD COLUMN supplier_name TEXT DEFAULT ''",
+        "ALTER TABLE out_records ADD COLUMN recipient_name TEXT DEFAULT ''",
+        "ALTER TABLE stock_flow ADD COLUMN destination TEXT DEFAULT ''",
+    ];
+    for sql in &migrations {
+        // ALTER TABLE ADD COLUMN 在列已存在时会报错，忽略即可
+        let _ = conn.execute(sql, []);
+    }
 
     Ok(())
 }
@@ -121,9 +152,35 @@ struct Record {
     product_id: i32,
     quantity: i32,
     remark: String,
+    #[serde(rename = "recipientName", default)]
+    recipient_name: String,
+    #[serde(rename = "supplierName", default)]
+    supplier_name: String,
     #[serde(rename = "createTime")]
     #[serde(default)]
     create_time: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct StockFlow {
+    id: i32,
+    #[serde(rename = "productId")]
+    product_id: i32,
+    #[serde(rename = "productName")]
+    product_name: String,
+    #[serde(rename = "type")]
+    flow_type: String,
+    quantity: i32,
+    #[serde(rename = "beforeStock")]
+    before_stock: i32,
+    #[serde(rename = "afterStock")]
+    after_stock: i32,
+    #[serde(default)]
+    destination: String,
+    operator: String,
+    remark: String,
+    #[serde(rename = "createTime")]
+    create_time: String,
 }
 
 #[tauri::command]
@@ -318,30 +375,52 @@ fn get_records(r#type: String, state: State<'_, AppState>) -> Result<Vec<Record>
     } else {
         "out_records"
     };
-    let query = format!(
-        "SELECT id, product_id, quantity, remark, create_time FROM {}",
-        table
-    );
 
-    let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
-
-    let rows = stmt
-        .query_map([], |row| {
-            Ok(Record {
-                id: row.get(0)?,
-                product_id: row.get(1)?,
-                quantity: row.get(2)?,
-                remark: row.get(3)?,
-                create_time: row.get(4)?,
+    if table == "in_records" {
+        let mut stmt = conn
+            .prepare("SELECT id, product_id, quantity, remark, supplier_name, create_time FROM in_records")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(Record {
+                    id: row.get(0)?,
+                    product_id: row.get(1)?,
+                    quantity: row.get(2)?,
+                    remark: row.get(3)?,
+                    supplier_name: row.get(4)?,
+                    recipient_name: String::new(),
+                    create_time: row.get(5)?,
+                })
             })
-        })
-        .map_err(|e| e.to_string())?;
-
-    let mut result = Vec::new();
-    for row in rows {
-        result.push(row.map_err(|e| e.to_string())?);
+            .map_err(|e| e.to_string())?;
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row.map_err(|e| e.to_string())?);
+        }
+        Ok(result)
+    } else {
+        let mut stmt = conn
+            .prepare("SELECT id, product_id, quantity, remark, recipient_name, create_time FROM out_records")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(Record {
+                    id: row.get(0)?,
+                    product_id: row.get(1)?,
+                    quantity: row.get(2)?,
+                    remark: row.get(3)?,
+                    recipient_name: row.get(4)?,
+                    supplier_name: String::new(),
+                    create_time: row.get(5)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row.map_err(|e| e.to_string())?);
+        }
+        Ok(result)
     }
-    Ok(result)
 }
 
 #[tauri::command]
@@ -363,14 +442,20 @@ fn add_record(record: Record, state: State<'_, AppState>) -> Result<Record, Stri
         .create_time
         .unwrap_or_else(|| chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
 
-    conn.execute(
-        &format!(
-            "INSERT INTO {} (product_id, quantity, remark, create_time) VALUES (?, ?, ?, ?)",
-            table
-        ),
-        rusqlite::params![record.product_id, quantity, record.remark, create_time],
-    )
-    .map_err(|e| e.to_string())?;
+    // 插入记录时带上去向/来源字段
+    if table == "in_records" {
+        conn.execute(
+            "INSERT INTO in_records (product_id, quantity, remark, supplier_name, create_time) VALUES (?, ?, ?, ?, ?)",
+            rusqlite::params![record.product_id, quantity, record.remark, record.supplier_name, create_time],
+        )
+        .map_err(|e| e.to_string())?;
+    } else {
+        conn.execute(
+            "INSERT INTO out_records (product_id, quantity, remark, recipient_name, create_time) VALUES (?, ?, ?, ?, ?)",
+            rusqlite::params![record.product_id, quantity, record.remark, record.recipient_name, create_time],
+        )
+        .map_err(|e| e.to_string())?;
+    }
 
     let id = conn.last_insert_rowid();
 
@@ -379,9 +464,41 @@ fn add_record(record: Record, state: State<'_, AppState>) -> Result<Record, Stri
     } else {
         -quantity
     };
+
+    // 获取变动前库存
+    let before_stock: i32 = conn
+        .query_row("SELECT stock FROM products WHERE id = ?", [record.product_id], |row| row.get(0))
+        .unwrap_or(0);
+
     conn.execute(
         "UPDATE products SET stock = stock + ? WHERE id = ?",
         rusqlite::params![stock_change, record.product_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // 获取变动后库存
+    let after_stock: i32 = before_stock + stock_change;
+
+    // 获取商品名称
+    let product_name: String = conn
+        .query_row("SELECT name FROM products WHERE id = ?", [record.product_id], |row| row.get(0))
+        .unwrap_or_else(|_| "未知商品".to_string());
+
+    // 出入去向：出库→收货人，入库→供应商
+    let destination = if table == "out_records" {
+        record.recipient_name.clone()
+    } else {
+        record.supplier_name.clone()
+    };
+
+    // 自动插入库存流水记录（包含去向）
+    let flow_type = if table == "in_records" { "in" } else { "out" };
+    conn.execute(
+        "INSERT INTO stock_flow (product_id, product_name, type, quantity, before_stock, after_stock, destination, operator, remark, create_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        rusqlite::params![
+            record.product_id, product_name, flow_type, quantity,
+            before_stock, after_stock, destination, "系统用户", record.remark, create_time
+        ],
     )
     .map_err(|e| e.to_string())?;
 
@@ -390,6 +507,98 @@ fn add_record(record: Record, state: State<'_, AppState>) -> Result<Record, Stri
         create_time: Some(create_time),
         ..record
     })
+}
+
+#[tauri::command]
+fn add_stock_flow(flow: StockFlow, state: State<'_, AppState>) -> Result<StockFlow, String> {
+    let conn = get_conn(&state)?;
+    conn.execute(
+        "INSERT INTO stock_flow (product_id, product_name, type, quantity, before_stock, after_stock, destination, operator, remark, create_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        rusqlite::params![
+            flow.product_id, flow.product_name, flow.flow_type, flow.quantity,
+            flow.before_stock, flow.after_stock, flow.destination, flow.operator, flow.remark, flow.create_time
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    let id = conn.last_insert_rowid();
+    Ok(StockFlow { id: id as i32, ..flow })
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct StockFlowFilter {
+    #[serde(rename = "productId", default)]
+    product_id: Option<i32>,
+    #[serde(rename = "type", default)]
+    flow_type: Option<String>,
+    #[serde(rename = "startDate", default)]
+    start_date: Option<String>,
+    #[serde(rename = "endDate", default)]
+    end_date: Option<String>,
+}
+
+#[tauri::command]
+fn get_stock_flows(filter: Option<StockFlowFilter>, state: State<'_, AppState>) -> Result<Vec<StockFlow>, String> {
+    let conn = get_conn(&state)?;
+
+    let mut sql = String::from(
+        "SELECT id, product_id, product_name, type, quantity, before_stock, after_stock, destination, operator, remark, create_time FROM stock_flow WHERE 1=1"
+    );
+    let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+    if let Some(f) = &filter {
+        if let Some(pid) = f.product_id {
+            sql.push_str(" AND product_id = ?");
+            param_values.push(Box::new(pid));
+        }
+        if let Some(ref ft) = f.flow_type {
+            if ft != "all" && !ft.is_empty() {
+                sql.push_str(" AND type = ?");
+                param_values.push(Box::new(ft.clone()));
+            }
+        }
+        if let Some(ref sd) = f.start_date {
+            if !sd.is_empty() {
+                sql.push_str(" AND create_time >= ?");
+                param_values.push(Box::new(format!("{} 00:00:00", sd)));
+            }
+        }
+        if let Some(ref ed) = f.end_date {
+            if !ed.is_empty() {
+                sql.push_str(" AND create_time <= ?");
+                param_values.push(Box::new(format!("{} 23:59:59", ed)));
+            }
+        }
+    }
+
+    sql.push_str(" ORDER BY create_time DESC");
+
+    let params: Vec<&dyn rusqlite::types::ToSql> = param_values.iter().map(|p| p.as_ref()).collect();
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+
+    let rows = stmt
+        .query_map(params.as_slice(), |row| {
+            Ok(StockFlow {
+                id: row.get(0)?,
+                product_id: row.get(1)?,
+                product_name: row.get(2)?,
+                flow_type: row.get(3)?,
+                quantity: row.get(4)?,
+                before_stock: row.get(5)?,
+                after_stock: row.get(6)?,
+                destination: row.get(7)?,
+                operator: row.get(8)?,
+                remark: row.get(9)?,
+                create_time: row.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row.map_err(|e| e.to_string())?);
+    }
+    Ok(result)
 }
 
 #[tauri::command]
@@ -456,6 +665,8 @@ pub fn run() {
             delete_unit,
             get_records,
             add_record,
+            add_stock_flow,
+            get_stock_flows,
             close_window,
             minimize_window,
             maximize_window
