@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import {
   ChevronRight,
   PlusCircle,
@@ -169,7 +169,7 @@ const api = {
     }
   },
 
-  // 出入库记录
+  // 出采购记录
   getRecords: async (type) => {
     try {
       return await invoke("get_records", { type });
@@ -209,7 +209,7 @@ const App = () => {
   const [categories, setCategories] = useState([]);
   const [units, setUnits] = useState([]);
 
-  // 出入库记录
+  // 出采购记录
   const [inRecords, setInRecords] = useState([]);
   const [outRecords, setOutRecords] = useState([]);
 
@@ -718,13 +718,15 @@ const App = () => {
   const [newCategory, setNewCategory] = useState("");
   const [newUnit, setNewUnit] = useState("");
 
-  // 出入库弹窗状态
+  // 采购销售弹窗状态
   const [showInModal, setShowInModal] = useState(false);
   const [showOutModal, setShowOutModal] = useState(false);
   const [inForm, setInForm] = useState({
     productId: "",
     quantity: "",
     remark: "",
+    docType: "purchase",
+    supplierName: "",
   });
   const [outForm, setOutForm] = useState({
     productId: "",
@@ -742,8 +744,29 @@ const App = () => {
   const [inDropdownOpen, setInDropdownOpen] = useState(false);
   const [outSearchText, setOutSearchText] = useState("");
   const [outDropdownOpen, setOutDropdownOpen] = useState(false);
+  const [supplierSearchText, setSupplierSearchText] = useState("");
 
-  // 销售 - 接收方相关状态
+  // 供应商管理状态
+  const [suppliers, setSuppliers] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("inventory_suppliers") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [showSupplierModal, setShowSupplierModal] = useState(false);
+  const [supplierModalMode, setSupplierModalMode] = useState("add");
+  const [editingSupplierId, setEditingSupplierId] = useState(null);
+  const [supplierForm, setSupplierForm] = useState({
+    id: null,
+    name: "",
+    contact: "",
+    phone: "",
+    address: "",
+    remark: "",
+  });
+
+  // 销售 - 客户相关状态
   const [recipientDropdownOpen, setRecipientDropdownOpen] = useState(false);
   const [recipientSearchText, setRecipientSearchText] = useState("");
   const recipientDropdownRef = useRef(null);
@@ -755,6 +778,7 @@ const App = () => {
 
   const [searchKey, setSearchKey] = useState("");
   const [loading, setLoading] = useState(false);
+  const [inSubTab, setInSubTab] = useState("records");
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 500);
@@ -809,7 +833,7 @@ const App = () => {
       p.id.toString().includes(outSearchText),
   );
 
-  // 过滤客户用于接收方下拉
+  // 过滤客户用于客户下拉
   const filteredRecipients = customers.filter(
     (c) =>
       c.name.toLowerCase().includes(recipientSearchText.toLowerCase()) ||
@@ -947,7 +971,7 @@ const App = () => {
     setUnits(updated.map((u) => u.name));
   };
 
-  // ---------- 入库 ----------
+  // ---------- 采购 ----------
   const openInModal = () => {
     setInForm({ productId: "", quantity: "", remark: "" });
     setInSearchText("");
@@ -1008,11 +1032,12 @@ const App = () => {
     
     setLoading(true);
     try {
-      // 1. 添加入库记录
+      // 1. 添加采购记录
       await api.addRecord({
         productId: id,
         quantity: num,
         remark: inForm.remark,
+        supplierName: inForm.supplierName || "",
       });
       
       // 2. 更新商品库存（原子操作）
@@ -1030,20 +1055,21 @@ const App = () => {
       // 4. 记录库存变动日志
       addStockLog("in", id, product.name, num, beforeStock, afterStock, inForm.remark);
       
-      // 5. 刷新入库记录列表
+      // 5. 刷新采购记录列表
       const inRecsRes = await api.getRecords("in");
       setInRecords(inRecsRes.map((r) => ({ ...r, time: r.createTime })));
       
       // 6. 显示操作结果
-      alert(`入库成功！\n商品：${product.name}\n入库数量：${num}\n入库前库存：${beforeStock}\n入库后库存：${afterStock}`);
+      alert(`采购成功！\n商品：${product.name}\n采购数量：${num}\n采购前库存：${beforeStock}\n采购后库存：${afterStock}`);
       
       // 7. 关闭弹窗并清空表单
       setShowInModal(false);
-      setInForm({ productId: "", quantity: "", remark: "" });
+      setInForm({ productId: "", quantity: "", remark: "", docType: "purchase", supplierName: "" });
       setInSearchText("");
+      setSupplierSearchText("");
     } catch (e) {
-      console.error("入库操作失败:", e);
-      alert("入库操作失败：" + e.message);
+      console.error("采购操作失败:", e);
+      alert("采购操作失败：" + e.message);
     } finally {
       setLoading(false);
     }
@@ -1201,8 +1227,10 @@ const App = () => {
       setProductSubTab("list");
     } else if (tab === "in") {
       setShowInModal(false);
-      setInForm({ productId: "", quantity: "", remark: "" });
+      setInForm({ productId: "", quantity: "", remark: "", docType: "purchase", supplierName: "" });
       setInSearchText("");
+      setSupplierSearchText("");
+      setInSubTab("records");
     } else if (tab === "out") {
       setShowOutModal(false);
       setOutForm({ productId: "", quantity: "", unitPrice: "", totalAmount: "", remark: "", recipientId: "", recipientName: "", paymentStatus: "unpaid" });
@@ -1221,7 +1249,7 @@ const App = () => {
     { name: "财务管理", key: "finance", icon: <Receipt size={18} /> },
     { name: "库存查询", key: "stock", icon: <Search size={18} /> },
     { name: "商品管理", key: "products", icon: <Package size={18} /> },
-    { name: "入库管理", key: "in", icon: <ArrowUpRight size={18} /> },
+    { name: "采购管理", key: "in", icon: <ArrowUpRight size={18} /> },
     { name: "销售管理", key: "out", icon: <ArrowDownRight size={18} /> },
   ];
   const currentMenu = menuList.find((m) => m.key === tab);
@@ -1231,6 +1259,11 @@ const App = () => {
     { name: "品牌管理", key: "brand" },
     { name: "商品分类", key: "category" },
     { name: "单位管理", key: "unit" },
+  ];
+
+  const inSubTabs = [
+    { name: "采购记录", key: "records" },
+    { name: "供应商管理", key: "suppliers" },
   ];
 
   const financeSubTabs = [
@@ -1404,6 +1437,28 @@ const App = () => {
           </div>
         )}
 
+        {tab === "in" && (
+          <div className="bg-white border-b border-gray-200 px-6 py-0 flex space-x-1">
+            {inSubTabs.map((sub) => (
+              <button
+                key={sub.key}
+                onClick={() => {
+                  setInSubTab(sub.key);
+                  setLoading(true);
+                  setTimeout(() => setLoading(false), 300);
+                }}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  inSubTab === sub.key
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                {sub.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="flex-1 overflow-auto p-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -1424,7 +1479,11 @@ const App = () => {
                         : financeSubTab === "reconciliation"
                           ? "客户对账"
                           : "欠款管理"
-                      : currentMenu?.name}
+                      : tab === "in"
+                        ? inSubTab === "records"
+                          ? "采购记录"
+                          : "供应商管理"
+                        : currentMenu?.name}
               </h2>
               <div className="flex gap-2">
                 {tab === "products" && productSubTab === "list" && (
@@ -1437,21 +1496,37 @@ const App = () => {
                 )}
                 {tab === "in" && (
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={openInModal}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors flex items-center gap-2"
-                    >
-                      <ArrowUpRight size={16} /> 新入库
-                    </button>
-                    <button
-                      onClick={() => {
-                        setStockLogs(getStockLogs({ type: "in" }));
-                        setShowStockLogModal(true);
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      <Clock size={14} /> 入库日志
-                    </button>
+                    {inSubTab === "records" && (
+                      <>
+                        <button
+                          onClick={openInModal}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors flex items-center gap-2"
+                        >
+                          <ArrowUpRight size={16} /> 新采购
+                        </button>
+                        <button
+                          onClick={() => {
+                            setStockLogs(getStockLogs({ type: "in" }));
+                            setShowStockLogModal(true);
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <Clock size={14} /> 采购日志
+                        </button>
+                      </>
+                    )}
+                    {inSubTab === "suppliers" && (
+                      <button
+                        onClick={() => {
+                          setSupplierModalMode("add");
+                          setSupplierForm({ id: null, name: "", contact: "", phone: "", address: "", remark: "" });
+                          setShowSupplierModal(true);
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center gap-2"
+                      >
+                        <PlusCircle size={16} /> 新增供应商
+                      </button>
+                    )}
                   </div>
                 )}
                 {tab === "out" && (
@@ -1718,7 +1793,7 @@ const App = () => {
                         <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-5">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm text-green-600 font-medium">本月入库总量</p>
+                              <p className="text-sm text-green-600 font-medium">本月采购总量</p>
                               <p className="text-2xl font-bold text-gray-800 mt-1">
                                 {inRecords.reduce((sum, r) => sum + r.quantity, 0)} 件
                               </p>
@@ -1727,7 +1802,7 @@ const App = () => {
                               <TrendingUp size={24} />
                             </div>
                           </div>
-                          <p className="text-xs text-green-500 mt-2">{inRecords.length} 笔入库记录</p>
+                          <p className="text-xs text-green-500 mt-2">{inRecords.length} 笔采购记录</p>
                         </div>
                         <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-5">
                           <div className="flex items-center justify-between">
@@ -1745,7 +1820,7 @@ const App = () => {
                         </div>
                       </div>
 
-                      {/* 出入库数据面板 */}
+                      {/* 采购销售数据面板 */}
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* 库存周转率 */}
                         <div className="bg-white border border-gray-200 rounded-xl p-5">
@@ -1899,7 +1974,7 @@ const App = () => {
                         <div className="flex justify-center gap-6 mt-4">
                           <div className="flex items-center gap-2">
                             <div className="w-3 h-3 bg-green-400 rounded" />
-                            <span className="text-sm text-gray-600">入库量</span>
+                            <span className="text-sm text-gray-600">采购量</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="w-3 h-3 bg-orange-400 rounded" />
@@ -2178,50 +2253,242 @@ const App = () => {
                   )}
 
                   {tab === "in" && (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-gray-50 text-gray-600">
-                            <th className="px-4 py-3 text-left font-medium rounded-tl-lg">商品ID</th>
-                            <th className="px-4 py-3 text-left font-medium">商品名称</th>
-                            <th className="px-4 py-3 text-left font-medium">数量</th>
-                            <th className="px-4 py-3 text-left font-medium">备注</th>
-                            <th className="px-4 py-3 text-left font-medium rounded-tr-lg">时间</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {inRecords.length > 0 ? (
-                            inRecords.map((r) => {
-                              // 从 products 数组中查找商品名称
-                              const product = products.find((p) => p.id === r.productId);
-                              const productName = product?.name || r.productName || "未知商品";
-                              return (
-                                <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                  <td className="px-4 py-3 text-gray-500">{r.productId}</td>
-                                  <td className="px-4 py-3 font-medium">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
-                                        <Package size={12} className="text-blue-600" />
-                                      </div>
-                                      {productName}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-green-600 font-medium">+{r.quantity}</td>
-                                  <td className="px-4 py-3 text-gray-500">{r.remark || "-"}</td>
-                                  <td className="px-4 py-3 text-gray-400">{r.time}</td>
+                    <>
+                      {inSubTab === "records" && (
+                        <div className="space-y-4">
+                          {/* 采购统计卡片 */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-4">
+                              <div className="flex items-center gap-2">
+                                <ArrowUpRight size={18} className="text-green-600" />
+                                <span className="text-sm text-green-600 font-medium">采购总笔数</span>
+                              </div>
+                              <p className="text-2xl font-bold text-gray-800 mt-1">{inRecords.length} 笔</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4">
+                              <div className="flex items-center gap-2">
+                                <Package size={18} className="text-blue-600" />
+                                <span className="text-sm text-blue-600 font-medium">采购总数量</span>
+                              </div>
+                              <p className="text-2xl font-bold text-gray-800 mt-1">
+                                {inRecords.reduce((sum, r) => sum + r.quantity, 0)} 件
+                              </p>
+                            </div>
+                            <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4">
+                              <div className="flex items-center gap-2">
+                                <DollarSign size={18} className="text-purple-600" />
+                                <span className="text-sm text-purple-600 font-medium">采购总金额</span>
+                              </div>
+                              <p className="text-2xl font-bold text-gray-800 mt-1">
+                                ¥{inRecords.reduce((sum, r) => {
+                                  const product = products.find((p) => p.id === r.productId);
+                                  return sum + (product ? (product.costPrice || product.price || 0) * r.quantity : 0);
+                                }, 0).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* 筛选器 */}
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="relative w-full sm:w-64">
+                              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                              <input
+                                type="text"
+                                placeholder="搜索供应商名称"
+                                value={supplierSearchText || ""}
+                                onChange={(e) => setSupplierSearchText(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                              />
+                            </div>
+                            <select
+                              value={inForm.docType || "all"}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setInForm({ ...inForm, docType: val });
+                              }}
+                              className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            >
+                              <option value="all">全部单据类型</option>
+                              <option value="purchase">采购入库单</option>
+                              <option value="return">采购退货单</option>
+                              <option value="transfer">调拨入库单</option>
+                              <option value="other">其他入库单</option>
+                            </select>
+                          </div>
+
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-gray-50 text-gray-600">
+                                  <th className="px-4 py-3 text-left font-medium rounded-tl-lg">单据类型</th>
+                                  <th className="px-4 py-3 text-left font-medium">商品ID</th>
+                                  <th className="px-4 py-3 text-left font-medium">商品名称</th>
+                                  <th className="px-4 py-3 text-left font-medium">数量</th>
+                                  <th className="px-4 py-3 text-left font-medium">供应商</th>
+                                  <th className="px-4 py-3 text-left font-medium">备注</th>
+                                  <th className="px-4 py-3 text-left font-medium rounded-tr-lg">时间</th>
                                 </tr>
-                              );
-                            })
-                          ) : (
-                            <tr>
-                              <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                                暂无入库记录
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                              </thead>
+                              <tbody>
+                                {inRecords
+                                  .filter((r) => {
+                                    const matchSupplier = !supplierSearchText ||
+                                      (r.supplierName && r.supplierName.includes(supplierSearchText));
+                                    const matchDocType = inForm.docType === "all" ||
+                                      !inForm.docType ||
+                                      (r.docType || "purchase") === inForm.docType;
+                                    return matchSupplier && matchDocType;
+                                  })
+                                  .map((r) => {
+                                    // 从 products 数组中查找商品名称
+                                    const product = products.find((p) => p.id === r.productId);
+                                    const productName = product?.name || r.productName || "未知商品";
+                                    const docTypeMap = {
+                                      purchase: { label: "采购入库", color: "bg-green-100 text-green-700" },
+                                      return: { label: "采购退货", color: "bg-red-100 text-red-700" },
+                                      transfer: { label: "调拨入库", color: "bg-blue-100 text-blue-700" },
+                                      other: { label: "其他入库", color: "bg-gray-100 text-gray-700" },
+                                    };
+                                    const docTypeInfo = docTypeMap[r.docType || "purchase"];
+                                    return (
+                                      <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                        <td className="px-4 py-3">
+                                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${docTypeInfo.color}`}>
+                                            {docTypeInfo.label}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-gray-500">{r.productId}</td>
+                                        <td className="px-4 py-3 font-medium">
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
+                                              <Package size={12} className="text-blue-600" />
+                                            </div>
+                                            {productName}
+                                          </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-green-600 font-medium">+{r.quantity}</td>
+                                        <td className="px-4 py-3">
+                                          {r.supplierName ? (
+                                            <div className="flex items-center gap-1.5">
+                                              <User size={14} className="text-blue-500" />
+                                              <span className="text-gray-700">{r.supplierName}</span>
+                                            </div>
+                                          ) : (
+                                            <span className="text-gray-400">-</span>
+                                          )}
+                                        </td>
+                                        <td className="px-4 py-3 text-gray-500">{r.remark || "-"}</td>
+                                        <td className="px-4 py-3 text-gray-400">{r.time}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                {inRecords.filter((r) => {
+                                  const matchSupplier = !supplierSearchText ||
+                                    (r.supplierName && r.supplierName.includes(supplierSearchText));
+                                  const matchDocType = inForm.docType === "all" ||
+                                    !inForm.docType ||
+                                    (r.docType || "purchase") === inForm.docType;
+                                  return matchSupplier && matchDocType;
+                                }).length === 0 && (
+                                  <tr>
+                                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                                      暂无采购记录
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {inSubTab === "suppliers" && (
+                        <div className="space-y-4">
+                          <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
+                            <div className="relative w-full sm:w-80">
+                              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                              <input
+                                type="text"
+                                placeholder="搜索供应商名称、联系人"
+                                value={supplierSearchText || ""}
+                                onChange={(e) => setSupplierSearchText(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-gray-50 text-gray-600">
+                                  <th className="px-4 py-3 text-left font-medium rounded-tl-lg">供应商名称</th>
+                                  <th className="px-4 py-3 text-left font-medium">联系人</th>
+                                  <th className="px-4 py-3 text-left font-medium">联系电话</th>
+                                  <th className="px-4 py-3 text-left font-medium">地址</th>
+                                  <th className="px-4 py-3 text-left font-medium">备注</th>
+                                  <th className="px-4 py-3 text-right font-medium rounded-tr-lg">操作</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {suppliers
+                                  .filter((s) =>
+                                    s.name.includes(supplierSearchText || "") ||
+                                    s.contact?.includes(supplierSearchText || "")
+                                  )
+                                  .map((s) => (
+                                    <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                      <td className="px-4 py-3 font-medium">{s.name}</td>
+                                      <td className="px-4 py-3 text-gray-500">{s.contact || "-"}</td>
+                                      <td className="px-4 py-3 text-gray-500">{s.phone || "-"}</td>
+                                      <td className="px-4 py-3 text-gray-500">{s.address || "-"}</td>
+                                      <td className="px-4 py-3 text-gray-500">{s.remark || "-"}</td>
+                                      <td className="px-4 py-3 text-right">
+                                        <div className="flex items-center justify-end gap-1">
+                                          <button
+                                            onClick={() => {
+                                              setSupplierModalMode("edit");
+                                              setEditingSupplierId(s.id);
+                                              setSupplierForm({ ...s });
+                                              setShowSupplierModal(true);
+                                            }}
+                                            className="p-1.5 text-gray-400 hover:text-blue-500 transition-colors"
+                                            title="编辑"
+                                          >
+                                            <Edit3 size={16} />
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              if (window.confirm(`确认删除供应商 "${s.name}"？`)) {
+                                                const updated = suppliers.filter((x) => x.id !== s.id);
+                                                setSuppliers(updated);
+                                                localStorage.setItem("inventory_suppliers", JSON.stringify(updated));
+                                              }
+                                            }}
+                                            className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                                            title="删除"
+                                          >
+                                            <Trash2 size={16} />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                {suppliers.filter((s) =>
+                                  s.name.includes(supplierSearchText || "") ||
+                                  s.contact?.includes(supplierSearchText || "")
+                                ).length === 0 && (
+                                  <tr>
+                                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                                      暂无供应商，请点击右上角添加
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {tab === "out" && (
@@ -2261,7 +2528,7 @@ const App = () => {
                           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                           <input
                             type="text"
-                            placeholder="搜索接收方名称"
+                            placeholder="搜索客户名称"
                             value={recipientSearchText}
                             onChange={(e) => setRecipientSearchText(e.target.value)}
                             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -2290,7 +2557,7 @@ const App = () => {
                               <th className="px-4 py-3 text-left font-medium">数量</th>
                               <th className="px-4 py-3 text-left font-medium">单价</th>
                               <th className="px-4 py-3 text-left font-medium">销售总金额</th>
-                              <th className="px-4 py-3 text-left font-medium">接收方</th>
+                              <th className="px-4 py-3 text-left font-medium">客户</th>
                               <th className="px-4 py-3 text-left font-medium">付款状态</th>
                               <th className="px-4 py-3 text-left font-medium">备注</th>
                               <th className="px-4 py-3 text-left font-medium rounded-tr-lg">时间</th>
@@ -3193,7 +3460,7 @@ const App = () => {
         </div>
       )}
 
-      {/* 入库弹窗 */}
+      {/* 采购弹窗 */}
       {showInModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative space-y-4">
@@ -3203,7 +3470,7 @@ const App = () => {
             >
               <X size={20} />
             </button>
-            <h4 className="text-lg font-semibold text-gray-900">新增入库</h4>
+            <h4 className="text-lg font-semibold text-gray-900">新增采购</h4>
             <div className="relative" ref={inDropdownRef}>
               <label className="block text-sm font-medium text-gray-700 mb-1">选择商品</label>
               <input
@@ -3241,15 +3508,41 @@ const App = () => {
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">入库数量</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">采购数量</label>
               <input
                 type="number"
                 min="1"
                 value={inForm.quantity}
                 onChange={(e) => setInForm({ ...inForm, quantity: e.target.value })}
-                placeholder="请输入入库数量"
+                placeholder="请输入采购数量"
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">单据类型</label>
+              <select
+                value={inForm.docType || "purchase"}
+                onChange={(e) => setInForm({ ...inForm, docType: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <option value="purchase">采购入库单</option>
+                <option value="return">采购退货单</option>
+                <option value="transfer">调拨入库单</option>
+                <option value="other">其他入库单</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">供应商</label>
+              <select
+                value={inForm.supplierName || ""}
+                onChange={(e) => setInForm({ ...inForm, supplierName: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <option value="">请选择供应商</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.name}>{s.name}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
@@ -3272,7 +3565,7 @@ const App = () => {
                 onClick={doIn}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 flex items-center gap-2"
               >
-                <ArrowUpRight size={16} />确认入库
+                <ArrowUpRight size={16} />确认采购
               </button>
             </div>
           </div>
@@ -3291,7 +3584,7 @@ const App = () => {
                 </div>
                 <div>
                   <h4 className="text-lg font-bold text-gray-900">库存变动日志</h4>
-                  <p className="text-xs text-gray-500">记录所有库存入库与销售操作</p>
+                  <p className="text-xs text-gray-500">记录所有库存采购与销售操作</p>
                 </div>
               </div>
               <button
@@ -3318,7 +3611,7 @@ const App = () => {
                     className="text-sm bg-transparent border-none outline-none text-gray-700 cursor-pointer"
                   >
                     <option value="all">全部类型</option>
-                    <option value="in">📥 入库</option>
+                    <option value="in">📥 采购</option>
                     <option value="out">📤 销售</option>
                   </select>
                 </div>
@@ -3365,7 +3658,7 @@ const App = () => {
                   <p className="text-xl font-bold text-gray-800">{stockLogs.length}</p>
                 </div>
                 <div className="bg-gradient-to-br from-green-50 to-green-100/50 rounded-xl p-3 border border-green-100">
-                  <p className="text-xs text-green-600 font-medium">入库次数</p>
+                  <p className="text-xs text-green-600 font-medium">采购次数</p>
                   <p className="text-xl font-bold text-gray-800">
                     {stockLogs.filter(l => l.type === "in").length}
                   </p>
@@ -3417,7 +3710,7 @@ const App = () => {
                                 : "bg-orange-100 text-orange-700 border border-orange-200"
                             }`}>
                               {log.type === "in" ? (
-                                <><ArrowUpRight size={12} />入库</>
+                                <><ArrowUpRight size={12} />采购</>
                               ) : (
                                 <><ArrowDownRight size={12} />销售</>
                               )}
@@ -3461,7 +3754,7 @@ const App = () => {
                               <Clock size={32} className="text-gray-300" />
                             </div>
                             <p className="text-sm">暂无库存变动记录</p>
-                            <p className="text-xs">进行入库或销售操作后将显示在这里</p>
+                            <p className="text-xs">进行采购或销售操作后将显示在这里</p>
                           </div>
                         </td>
                       </tr>
@@ -3475,7 +3768,7 @@ const App = () => {
             <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
               <p className="text-xs text-gray-500">
                 共 <span className="font-semibold text-gray-700">{stockLogs.length}</span> 条记录
-                {logFilterType !== "all" && ` · 已筛选: ${logFilterType === "in" ? "入库" : "出库"}`}
+                {logFilterType !== "all" && ` · 已筛选: ${logFilterType === "in" ? "采购" : "出库"}`}
               </p>
               <button
                 onClick={() => setShowStockLogModal(false)}
@@ -3590,7 +3883,7 @@ const App = () => {
               />
             </div>
 
-            {/* 接收方选择 */}
+            {/* 客户选择 */}
             <div className="relative" ref={recipientDropdownRef}>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <span className="flex items-center gap-1">
@@ -3690,6 +3983,115 @@ const App = () => {
                 className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700 flex items-center gap-2"
               >
                 <ArrowDownRight size={16} />确认销售
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 供应商弹窗 */}
+      {showSupplierModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative space-y-4">
+            <button
+              onClick={() => setShowSupplierModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X size={20} />
+            </button>
+            <h4 className="text-lg font-semibold text-gray-900">
+              {supplierModalMode === "add" ? "新增供应商" : "编辑供应商"}
+            </h4>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                供应商名称 <span className="text-red-500">*</span>
+              </label>
+              <input
+                value={supplierForm.name}
+                onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
+                placeholder="请输入供应商名称"
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+              {!supplierForm.name && (
+                <p className="text-xs text-red-500 mt-1">供应商名称为必填项</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">联系人</label>
+              <input
+                value={supplierForm.contact}
+                onChange={(e) => setSupplierForm({ ...supplierForm, contact: e.target.value })}
+                placeholder="请输入联系人姓名"
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">联系电话</label>
+              <input
+                type="tel"
+                value={supplierForm.phone}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "").slice(0, 11);
+                  setSupplierForm({ ...supplierForm, phone: val });
+                }}
+                placeholder="请输入联系电话"
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">地址</label>
+              <textarea
+                value={supplierForm.address}
+                onChange={(e) => setSupplierForm({ ...supplierForm, address: e.target.value })}
+                placeholder="请输入供应商地址"
+                rows={3}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
+              <textarea
+                value={supplierForm.remark}
+                onChange={(e) => setSupplierForm({ ...supplierForm, remark: e.target.value })}
+                placeholder="可选备注"
+                rows={2}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowSupplierModal(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  if (!supplierForm.name.trim()) {
+                    alert("供应商名称为必填项");
+                    return;
+                  }
+                  let updated;
+                  if (supplierModalMode === "add") {
+                    const newSupplier = {
+                      ...supplierForm,
+                      id: Date.now(),
+                    };
+                    updated = [...suppliers, newSupplier];
+                  } else {
+                    updated = suppliers.map((s) =>
+                      s.id === supplierForm.id ? { ...supplierForm } : s
+                    );
+                  }
+                  setSuppliers(updated);
+                  localStorage.setItem("inventory_suppliers", JSON.stringify(updated));
+                  setShowSupplierModal(false);
+                }}
+                disabled={!supplierForm.name}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <PlusCircle size={16} />
+                {supplierModalMode === "add" ? "确认添加" : "保存修改"}
               </button>
             </div>
           </div>
@@ -4628,3 +5030,9 @@ const PaymentModal = ({ show, onClose, paymentForm, setPaymentForm, onSubmit, nu
 };
 
 export default App;
+
+
+
+
+
+

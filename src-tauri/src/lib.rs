@@ -60,6 +60,7 @@ fn init_db_tables(conn: &Connection) -> Result<()> {
             quantity INTEGER NOT NULL,
             remark TEXT,
             supplier_name TEXT DEFAULT '',
+            doc_type TEXT DEFAULT 'purchase',
             create_time TEXT NOT NULL
         )",
         [],
@@ -100,6 +101,7 @@ fn init_db_tables(conn: &Connection) -> Result<()> {
     // 迁移：为已有表添加新列（如果不存在）
     let migrations = [
         "ALTER TABLE in_records ADD COLUMN supplier_name TEXT DEFAULT ''",
+        "ALTER TABLE in_records ADD COLUMN doc_type TEXT DEFAULT 'purchase'",
         "ALTER TABLE out_records ADD COLUMN recipient_name TEXT DEFAULT ''",
         "ALTER TABLE out_records ADD COLUMN unit_price REAL NOT NULL DEFAULT 0",
         "ALTER TABLE out_records ADD COLUMN total_amount REAL NOT NULL DEFAULT 0",
@@ -168,6 +170,8 @@ struct Record {
     recipient_name: String,
     #[serde(rename = "supplierName", default)]
     supplier_name: String,
+    #[serde(rename = "docType", default)]
+    doc_type: String,
     #[serde(rename = "createTime")]
     #[serde(default)]
     create_time: Option<String>,
@@ -391,7 +395,7 @@ fn get_records(r#type: String, state: State<'_, AppState>) -> Result<Vec<Record>
 
     if table == "in_records" {
         let mut stmt = conn
-            .prepare("SELECT id, product_id, quantity, remark, supplier_name, create_time FROM in_records")
+            .prepare("SELECT id, product_id, quantity, remark, supplier_name, doc_type, create_time FROM in_records")
             .map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map([], |row| {
@@ -403,8 +407,9 @@ fn get_records(r#type: String, state: State<'_, AppState>) -> Result<Vec<Record>
                     total_amount: 0.0,
                     remark: row.get(3)?,
                     supplier_name: row.get(4)?,
+                    doc_type: row.get(5)?,
                     recipient_name: String::new(),
-                    create_time: row.get(5)?,
+                    create_time: row.get(6)?,
                 })
             })
             .map_err(|e| e.to_string())?;
@@ -462,8 +467,8 @@ fn add_record(record: Record, state: State<'_, AppState>) -> Result<Record, Stri
     // 插入记录时带上去向/来源字段
     if table == "in_records" {
         conn.execute(
-            "INSERT INTO in_records (product_id, quantity, remark, supplier_name, create_time) VALUES (?, ?, ?, ?, ?)",
-            rusqlite::params![record.product_id, quantity, record.remark, record.supplier_name, create_time],
+            "INSERT INTO in_records (product_id, quantity, remark, supplier_name, doc_type, create_time) VALUES (?, ?, ?, ?, ?, ?)",
+            rusqlite::params![record.product_id, quantity, record.remark, record.supplier_name, record.doc_type, create_time],
         )
         .map_err(|e| e.to_string())?;
     } else {
