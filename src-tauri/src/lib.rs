@@ -70,6 +70,8 @@ fn init_db_tables(conn: &Connection) -> Result<()> {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             product_id INTEGER NOT NULL,
             quantity INTEGER NOT NULL,
+            unit_price REAL NOT NULL DEFAULT 0,
+            total_amount REAL NOT NULL DEFAULT 0,
             remark TEXT,
             recipient_name TEXT DEFAULT '',
             create_time TEXT NOT NULL
@@ -99,6 +101,8 @@ fn init_db_tables(conn: &Connection) -> Result<()> {
     let migrations = [
         "ALTER TABLE in_records ADD COLUMN supplier_name TEXT DEFAULT ''",
         "ALTER TABLE out_records ADD COLUMN recipient_name TEXT DEFAULT ''",
+        "ALTER TABLE out_records ADD COLUMN unit_price REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE out_records ADD COLUMN total_amount REAL NOT NULL DEFAULT 0",
         "ALTER TABLE stock_flow ADD COLUMN destination TEXT DEFAULT ''",
         "ALTER TABLE products ADD COLUMN cost_price REAL NOT NULL DEFAULT 0",
     ];
@@ -155,6 +159,10 @@ struct Record {
     #[serde(rename = "productId")]
     product_id: i32,
     quantity: i32,
+    #[serde(rename = "unitPrice", default)]
+    unit_price: f64,
+    #[serde(rename = "totalAmount", default)]
+    total_amount: f64,
     remark: String,
     #[serde(rename = "recipientName", default)]
     recipient_name: String,
@@ -391,6 +399,8 @@ fn get_records(r#type: String, state: State<'_, AppState>) -> Result<Vec<Record>
                     id: row.get(0)?,
                     product_id: row.get(1)?,
                     quantity: row.get(2)?,
+                    unit_price: 0.0,
+                    total_amount: 0.0,
                     remark: row.get(3)?,
                     supplier_name: row.get(4)?,
                     recipient_name: String::new(),
@@ -405,7 +415,7 @@ fn get_records(r#type: String, state: State<'_, AppState>) -> Result<Vec<Record>
         Ok(result)
     } else {
         let mut stmt = conn
-            .prepare("SELECT id, product_id, quantity, remark, recipient_name, create_time FROM out_records")
+            .prepare("SELECT id, product_id, quantity, unit_price, total_amount, remark, recipient_name, create_time FROM out_records")
             .map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map([], |row| {
@@ -413,10 +423,12 @@ fn get_records(r#type: String, state: State<'_, AppState>) -> Result<Vec<Record>
                     id: row.get(0)?,
                     product_id: row.get(1)?,
                     quantity: row.get(2)?,
-                    remark: row.get(3)?,
-                    recipient_name: row.get(4)?,
+                    unit_price: row.get(3).unwrap_or(0.0),
+                    total_amount: row.get(4).unwrap_or(0.0),
+                    remark: row.get(5)?,
+                    recipient_name: row.get(6)?,
                     supplier_name: String::new(),
-                    create_time: row.get(5)?,
+                    create_time: row.get(7)?,
                 })
             })
             .map_err(|e| e.to_string())?;
@@ -456,8 +468,8 @@ fn add_record(record: Record, state: State<'_, AppState>) -> Result<Record, Stri
         .map_err(|e| e.to_string())?;
     } else {
         conn.execute(
-            "INSERT INTO out_records (product_id, quantity, remark, recipient_name, create_time) VALUES (?, ?, ?, ?, ?)",
-            rusqlite::params![record.product_id, quantity, record.remark, record.recipient_name, create_time],
+            "INSERT INTO out_records (product_id, quantity, unit_price, total_amount, remark, recipient_name, create_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            rusqlite::params![record.product_id, quantity, record.unit_price, record.total_amount, record.remark, record.recipient_name, create_time],
         )
         .map_err(|e| e.to_string())?;
     }

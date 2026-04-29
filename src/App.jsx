@@ -285,7 +285,7 @@ const App = () => {
   const loadFinanceData = (customerList, outRecordsList) => {
     setFinanceLoading(true);
 
-    // 生成财务对账数据 - 基于客户和出库记录
+    // 生成财务对账数据 - 基于客户和销售记录
     const reconciliation = customerList.map((customer) => {
       const customerOutRecords = outRecordsList.filter(
         (r) => r.recipientName === customer.name
@@ -381,7 +381,7 @@ const App = () => {
         if (unitList.length > 0 && !punit) setPunit(unitList[0]);
         // 修正时间字段映射
         setInRecords(inRecordsRes.map((r) => ({ ...r, time: r.createTime })));
-        // 合并出库记录的本地扩展字段
+        // 合并销售记录的本地扩展字段
         const savedOutExtras = localStorage.getItem("inventory_out_extras");
         const extrasMap = savedOutExtras ? JSON.parse(savedOutExtras) : {};
         const processedOutRecords = outRecordsRes.map((r) => ({
@@ -389,6 +389,8 @@ const App = () => {
           time: r.createTime,
           recipientName: extrasMap[r.id]?.recipientName || r.recipientName || "",
           paymentStatus: extrasMap[r.id]?.paymentStatus || r.paymentStatus || "unpaid",
+          unitPrice: extrasMap[r.id]?.unitPrice || r.unitPrice || 0,
+          totalAmount: extrasMap[r.id]?.totalAmount || r.totalAmount || 0,
         }));
         setOutRecords(processedOutRecords);
 
@@ -400,7 +402,7 @@ const App = () => {
           setCustomers(loadedCustomers);
         }
 
-        // 加载财务数据 - 使用处理后的出库记录
+        // 加载财务数据 - 使用处理后的销售记录
         loadFinanceData(loadedCustomers, processedOutRecords);
       } catch (error) {
         console.error("加载数据失败:", error);
@@ -727,6 +729,8 @@ const App = () => {
   const [outForm, setOutForm] = useState({
     productId: "",
     quantity: "",
+    unitPrice: "",
+    totalAmount: "",
     remark: "",
     recipientId: "",
     recipientName: "",
@@ -739,7 +743,7 @@ const App = () => {
   const [outSearchText, setOutSearchText] = useState("");
   const [outDropdownOpen, setOutDropdownOpen] = useState(false);
 
-  // 出库 - 接收方相关状态
+  // 销售 - 接收方相关状态
   const [recipientDropdownOpen, setRecipientDropdownOpen] = useState(false);
   const [recipientSearchText, setRecipientSearchText] = useState("");
   const recipientDropdownRef = useRef(null);
@@ -1045,7 +1049,7 @@ const App = () => {
     }
   };
 
-  // 切换出库记录付款状态
+  // 切换销售记录付款状态
   const togglePaymentStatus = (recordId) => {
     const updated = outRecords.map((r) => {
       if (r.id === recordId) {
@@ -1070,9 +1074,9 @@ const App = () => {
     loadFinanceData(customers, updated);
   };
 
-  // ---------- 出库 ----------
+  // ---------- 销售 ----------
   const openOutModal = () => {
-    setOutForm({ productId: "", quantity: "", remark: "", recipientId: "", recipientName: "", paymentStatus: "unpaid" });
+    setOutForm({ productId: "", quantity: "", unitPrice: "", totalAmount: "", remark: "", recipientId: "", recipientName: "", paymentStatus: "unpaid" });
     setOutSearchText("");
     setOutDropdownOpen(false);
     setRecipientSearchText("");
@@ -1097,17 +1101,23 @@ const App = () => {
     
     const beforeStock = product.stock || 0;
     if (beforeStock < num) {
-      alert(`库存不足！当前库存：${beforeStock}，出库数量：${num}`);
+      alert(`库存不足！当前库存：${beforeStock}，销售数量：${num}`);
       return;
     }
     const afterStock = beforeStock - num;
     
+    // 计算单价和总金额
+    const unitPrice = parseFloat(outForm.unitPrice) || product.price || 0;
+    const totalAmount = unitPrice * num;
+
     setLoading(true);
     try {
-      // 1. 添加出库记录
+      // 1. 添加销售记录
       await api.addRecord({
         productId: id,
         quantity: -num,
+        unitPrice: unitPrice,
+        totalAmount: totalAmount,
         remark: outForm.remark,
       });
       
@@ -1126,7 +1136,7 @@ const App = () => {
       // 4. 记录库存变动日志
       addStockLog("out", id, product.name, num, beforeStock, afterStock, outForm.remark);
       
-      // 5. 刷新出库记录列表
+      // 5. 刷新销售记录列表
       const outRecsRes = await api.getRecords("out");
       // 合并后端数据和本地存储的扩展字段（recipientName, paymentStatus）
       const savedOutExtras = localStorage.getItem("inventory_out_extras");
@@ -1138,6 +1148,8 @@ const App = () => {
         extrasMap[result.id] = {
           recipientName: outForm.recipientName,
           paymentStatus: outForm.paymentStatus,
+          unitPrice: unitPrice,
+          totalAmount: totalAmount,
         };
         localStorage.setItem("inventory_out_extras", JSON.stringify(extrasMap));
       }
@@ -1147,14 +1159,16 @@ const App = () => {
         time: r.createTime,
         recipientName: extrasMap[r.id]?.recipientName || r.recipientName || "",
         paymentStatus: extrasMap[r.id]?.paymentStatus || r.paymentStatus || "unpaid",
+        unitPrice: extrasMap[r.id]?.unitPrice || r.unitPrice || 0,
+        totalAmount: extrasMap[r.id]?.totalAmount || r.totalAmount || 0,
       })));
       
       // 6. 显示操作结果
-      alert(`出库成功！\n商品：${product.name}\n出库数量：${num}\n出库前库存：${beforeStock}\n出库后库存：${afterStock}`);
+      alert(`销售成功！\n商品：${product.name}\n销售数量：${num}\n单价：¥${unitPrice.toFixed(2)}\n销售总金额：¥${totalAmount.toFixed(2)}\n销售前库存：${beforeStock}\n销售后库存：${afterStock}`);
       
       // 7. 关闭弹窗并清空表单
       setShowOutModal(false);
-      setOutForm({ productId: "", quantity: "", remark: "", recipientId: "", recipientName: "", paymentStatus: "unpaid" });
+      setOutForm({ productId: "", quantity: "", unitPrice: "", totalAmount: "", remark: "", recipientId: "", recipientName: "", paymentStatus: "unpaid" });
       setOutSearchText("");
       setRecipientSearchText("");
       
@@ -1164,10 +1178,12 @@ const App = () => {
         time: r.createTime,
         recipientName: extrasMap[r.id]?.recipientName || r.recipientName || "",
         paymentStatus: extrasMap[r.id]?.paymentStatus || r.paymentStatus || "unpaid",
+        unitPrice: extrasMap[r.id]?.unitPrice || r.unitPrice || 0,
+        totalAmount: extrasMap[r.id]?.totalAmount || r.totalAmount || 0,
       })));
     } catch (e) {
-      console.error("出库操作失败:", e);
-      alert("出库操作失败：" + e.message);
+      console.error("销售操作失败:", e);
+      alert("销售操作失败：" + e.message);
     } finally {
       setLoading(false);
     }
@@ -1189,7 +1205,7 @@ const App = () => {
       setInSearchText("");
     } else if (tab === "out") {
       setShowOutModal(false);
-      setOutForm({ productId: "", quantity: "", remark: "", recipientId: "", recipientName: "", paymentStatus: "unpaid" });
+      setOutForm({ productId: "", quantity: "", unitPrice: "", totalAmount: "", remark: "", recipientId: "", recipientName: "", paymentStatus: "unpaid" });
       setOutSearchText("");
       setRecipientSearchText("");
     } else if (tab === "customers") {
@@ -1206,7 +1222,7 @@ const App = () => {
     { name: "库存查询", key: "stock", icon: <Search size={18} /> },
     { name: "商品管理", key: "products", icon: <Package size={18} /> },
     { name: "入库管理", key: "in", icon: <ArrowUpRight size={18} /> },
-    { name: "出库管理", key: "out", icon: <ArrowDownRight size={18} /> },
+    { name: "销售管理", key: "out", icon: <ArrowDownRight size={18} /> },
   ];
   const currentMenu = menuList.find((m) => m.key === tab);
 
@@ -1444,7 +1460,7 @@ const App = () => {
                       onClick={openOutModal}
                       className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700 transition-colors flex items-center gap-2"
                     >
-                      <ArrowDownRight size={16} /> 新出库
+                      <ArrowDownRight size={16} /> 新销售
                     </button>
                     <button
                       onClick={() => {
@@ -1453,7 +1469,7 @@ const App = () => {
                       }}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                     >
-                      <Clock size={14} /> 出库日志
+                      <Clock size={14} /> 销售日志
                     </button>
                   </div>
                 )}
@@ -1667,7 +1683,7 @@ const App = () => {
                   {tab === "home" && (
                     <div className="space-y-6">
                       {/* 统计卡片 */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-5">
                           <div className="flex items-center justify-between">
                             <div>
@@ -1681,6 +1697,23 @@ const App = () => {
                             </div>
                           </div>
                           <p className="text-xs text-blue-500 mt-2">基于当前库存与单价计算</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-5">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm text-purple-600 font-medium">销售总价值</p>
+                              <p className="text-2xl font-bold text-gray-800 mt-1">
+                                ¥{outRecords.reduce((sum, r) => {
+                                  const product = products.find((p) => p.id === r.productId);
+                                  return sum + (product ? product.price * Math.abs(r.quantity) : 0);
+                                }, 0).toFixed(2)}
+                              </p>
+                            </div>
+                            <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center text-white">
+                              <DollarSign size={24} />
+                            </div>
+                          </div>
+                          <p className="text-xs text-purple-500 mt-2">基于销售记录累计计算</p>
                         </div>
                         <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-5">
                           <div className="flex items-center justify-between">
@@ -1699,7 +1732,7 @@ const App = () => {
                         <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-5">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm text-orange-600 font-medium">本月出库总量</p>
+                              <p className="text-sm text-orange-600 font-medium">本月销售总量</p>
                               <p className="text-2xl font-bold text-gray-800 mt-1">
                                 {outRecords.reduce((sum, r) => sum + Math.abs(r.quantity), 0)} 件
                               </p>
@@ -1708,7 +1741,7 @@ const App = () => {
                               <TrendingDown size={24} />
                             </div>
                           </div>
-                          <p className="text-xs text-orange-500 mt-2">{outRecords.length} 笔出库记录</p>
+                          <p className="text-xs text-orange-500 mt-2">{outRecords.length} 笔销售记录</p>
                         </div>
                       </div>
 
@@ -1746,40 +1779,62 @@ const App = () => {
                           </div>
                         </div>
 
-                        {/* 库存状态分布 */}
+                        {/* 欠款排行 */}
                         <div className="bg-white border border-gray-200 rounded-xl p-5">
                           <div className="flex items-center gap-2 mb-4">
-                            <Package size={18} className="text-purple-600" />
-                            <h3 className="font-semibold text-gray-800">库存状态分布</h3>
+                            <AlertTriangle size={18} className="text-red-600" />
+                            <h3 className="font-semibold text-gray-800">客户欠款排行</h3>
                           </div>
                           <div className="space-y-3">
                             {(() => {
-                              const total = products.reduce((sum, p) => sum + p.stock, 0) || 1;
-                              const categories = {};
-                              products.forEach((p) => {
-                                categories[p.category] = (categories[p.category] || 0) + p.stock;
+                              // 计算每个客户的欠款金额（未付款的销售记录总金额）
+                              const customerDebt = {};
+                              outRecords.forEach((r) => {
+                                if (r.paymentStatus !== "paid" && r.recipientName) {
+                                  const amount = r.totalAmount || 0;
+                                  customerDebt[r.recipientName] = (customerDebt[r.recipientName] || 0) + amount;
+                                }
                               });
-                              return Object.entries(categories)
+                              return Object.entries(customerDebt)
                                 .sort((a, b) => b[1] - a[1])
-                                .slice(0, 6)
-                                .map(([cat, count], i) => {
-                                  const pct = (count / total) * 100;
-                                  const colors = ["bg-blue-500", "bg-green-500", "bg-orange-500", "bg-purple-500", "bg-pink-500", "bg-cyan-500"];
+                                .slice(0, 8)
+                                .map(([name, debt], i) => {
+                                  const maxDebt = Math.max(...Object.values(customerDebt), 1);
+                                  const pct = (debt / maxDebt) * 100;
+                                  const colors = ["bg-red-500", "bg-orange-500", "bg-yellow-500", "bg-amber-500", "bg-lime-500", "bg-green-500", "bg-emerald-500", "bg-teal-500"];
                                   return (
-                                    <div key={cat}>
+                                    <div key={name}>
                                       <div className="flex justify-between text-sm mb-1">
-                                        <span className="text-gray-700">{cat}</span>
-                                        <span className="text-gray-500">{count} 件 ({pct.toFixed(1)}%)</span>
+                                        <span className="text-gray-700 flex items-center gap-1">
+                                          <span className="w-5 h-5 bg-gray-100 rounded-full flex items-center justify-center text-xs font-bold text-gray-500">{i + 1}</span>
+                                          {name}
+                                        </span>
+                                        <span className="text-red-600 font-medium">¥{debt.toFixed(2)}</span>
                                       </div>
                                       <div className="w-full bg-gray-100 rounded-full h-2.5">
                                         <div
-                                          className={`${colors[i % colors.length]} h-2.5 rounded-full transition-all duration-500`}
+                                          className={`${colors[Math.min(i, colors.length - 1)]} h-2.5 rounded-full transition-all duration-500`}
                                           style={{ width: `${pct}%` }}
                                         />
                                       </div>
                                     </div>
                                   );
                                 });
+                            })()}
+                            {(() => {
+                              const customerDebt = {};
+                              outRecords.forEach((r) => {
+                                if (r.paymentStatus !== "paid" && r.recipientName) {
+                                  const amount = r.totalAmount || 0;
+                                  customerDebt[r.recipientName] = (customerDebt[r.recipientName] || 0) + amount;
+                                }
+                              });
+                              return Object.keys(customerDebt).length === 0 ? (
+                                <div className="text-center py-6 text-gray-400 text-sm">
+                                  <CheckCircle2 size={24} className="mx-auto mb-2 text-green-400" />
+                                  所有客户均已结清欠款
+                                </div>
+                              ) : null;
                             })()}
                           </div>
                         </div>
@@ -1848,7 +1903,7 @@ const App = () => {
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="w-3 h-3 bg-orange-400 rounded" />
-                            <span className="text-sm text-gray-600">出库量</span>
+                            <span className="text-sm text-gray-600">销售量</span>
                           </div>
                         </div>
                       </div>
@@ -2171,12 +2226,12 @@ const App = () => {
 
                   {tab === "out" && (
                     <div className="space-y-4">
-                      {/* 出库统计卡片 */}
+                      {/* 销售统计卡片 */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-4">
                           <div className="flex items-center gap-2">
                             <ArrowDownRight size={18} className="text-orange-600" />
-                            <span className="text-sm text-orange-600 font-medium">出库总笔数</span>
+                            <span className="text-sm text-orange-600 font-medium">销售总笔数</span>
                           </div>
                           <p className="text-2xl font-bold text-gray-800 mt-1">{outRecords.length} 笔</p>
                         </div>
@@ -2233,6 +2288,8 @@ const App = () => {
                               <th className="px-4 py-3 text-left font-medium rounded-tl-lg">商品ID</th>
                               <th className="px-4 py-3 text-left font-medium">商品名称</th>
                               <th className="px-4 py-3 text-left font-medium">数量</th>
+                              <th className="px-4 py-3 text-left font-medium">单价</th>
+                              <th className="px-4 py-3 text-left font-medium">销售总金额</th>
                               <th className="px-4 py-3 text-left font-medium">接收方</th>
                               <th className="px-4 py-3 text-left font-medium">付款状态</th>
                               <th className="px-4 py-3 text-left font-medium">备注</th>
@@ -2265,6 +2322,8 @@ const App = () => {
                                       </div>
                                     </td>
                                     <td className="px-4 py-3 text-red-500 font-medium">-{Math.abs(r.quantity)}</td>
+                                    <td className="px-4 py-3 text-gray-600">¥{(r.unitPrice || 0).toFixed(2)}</td>
+                                    <td className="px-4 py-3 text-orange-600 font-medium">¥{(r.totalAmount || 0).toFixed(2)}</td>
                                   <td className="px-4 py-3">
                                     {r.recipientName ? (
                                       <div className="flex items-center gap-1.5">
@@ -2305,7 +2364,7 @@ const App = () => {
                             }).length === 0 && (
                               <tr>
                                 <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                                  暂无出库记录
+                                  暂无销售记录
                                 </td>
                               </tr>
                             )}
@@ -2665,12 +2724,13 @@ const App = () => {
                   <tbody>
                     {selectedCustomerDetail.records?.map((record) => {
                       const product = products.find((p) => p.id === record.productId);
-                      const amount = product ? product.price * Math.abs(record.quantity) : 0;
+                      const unitPrice = record.unitPrice || product?.price || 0;
+                      const amount = record.totalAmount || (product ? product.price * Math.abs(record.quantity) : 0);
                       return (
                         <tr key={record.id} className="border-b border-gray-100">
                           <td className="px-3 py-2">{record.productName || product?.name || "未知商品"}</td>
                           <td className="px-3 py-2 text-right">{Math.abs(record.quantity)}</td>
-                          <td className="px-3 py-2 text-right">¥{product?.price.toFixed(2) || "0.00"}</td>
+                          <td className="px-3 py-2 text-right">¥{unitPrice.toFixed(2)}</td>
                           <td className="px-3 py-2 text-right font-medium">¥{amount.toFixed(2)}</td>
                           <td className="px-3 py-2">
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
@@ -3231,7 +3291,7 @@ const App = () => {
                 </div>
                 <div>
                   <h4 className="text-lg font-bold text-gray-900">库存变动日志</h4>
-                  <p className="text-xs text-gray-500">记录所有库存入库与出库操作</p>
+                  <p className="text-xs text-gray-500">记录所有库存入库与销售操作</p>
                 </div>
               </div>
               <button
@@ -3259,7 +3319,7 @@ const App = () => {
                   >
                     <option value="all">全部类型</option>
                     <option value="in">📥 入库</option>
-                    <option value="out">📤 出库</option>
+                    <option value="out">📤 销售</option>
                   </select>
                 </div>
                 
@@ -3311,7 +3371,7 @@ const App = () => {
                   </p>
                 </div>
                 <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 rounded-xl p-3 border border-orange-100">
-                  <p className="text-xs text-orange-600 font-medium">出库次数</p>
+                  <p className="text-xs text-orange-600 font-medium">销售次数</p>
                   <p className="text-xl font-bold text-gray-800">
                     {stockLogs.filter(l => l.type === "out").length}
                   </p>
@@ -3359,7 +3419,7 @@ const App = () => {
                               {log.type === "in" ? (
                                 <><ArrowUpRight size={12} />入库</>
                               ) : (
-                                <><ArrowDownRight size={12} />出库</>
+                                <><ArrowDownRight size={12} />销售</>
                               )}
                             </span>
                           </td>
@@ -3401,7 +3461,7 @@ const App = () => {
                               <Clock size={32} className="text-gray-300" />
                             </div>
                             <p className="text-sm">暂无库存变动记录</p>
-                            <p className="text-xs">进行入库或出库操作后将显示在这里</p>
+                            <p className="text-xs">进行入库或销售操作后将显示在这里</p>
                           </div>
                         </td>
                       </tr>
@@ -3428,7 +3488,7 @@ const App = () => {
         </div>
       )}
 
-      {/* 出库弹窗 */}
+      {/* 销售弹窗 */}
       {showOutModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative space-y-4">
@@ -3439,7 +3499,7 @@ const App = () => {
             >
               <X size={20} />
             </button>
-            <h4 className="text-lg font-semibold text-gray-900">新增出库</h4>
+            <h4 className="text-lg font-semibold text-gray-900">新增销售</h4>
             <div className="relative" ref={outDropdownRef}>
               <label className="block text-sm font-medium text-gray-700 mb-1">选择商品</label>
               <input
@@ -3477,14 +3537,56 @@ const App = () => {
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">出库数量</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">销售数量</label>
               <input
                 type="number"
                 min="1"
                 value={outForm.quantity}
-                onChange={(e) => setOutForm({ ...outForm, quantity: e.target.value })}
-                placeholder="请输入出库数量"
+                onChange={(e) => {
+                  const qty = e.target.value;
+                  const price = parseFloat(outForm.unitPrice) || 0;
+                  const qtyNum = parseInt(qty) || 0;
+                  setOutForm({
+                    ...outForm,
+                    quantity: qty,
+                    totalAmount: (price * qtyNum).toFixed(2),
+                  });
+                }}
+                placeholder="请输入销售数量"
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">单价</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={outForm.unitPrice}
+                onChange={(e) => {
+                  const price = e.target.value;
+                  const qty = parseInt(outForm.quantity) || 0;
+                  const priceNum = parseFloat(price) || 0;
+                  setOutForm({
+                    ...outForm,
+                    unitPrice: price,
+                    totalAmount: (priceNum * qty).toFixed(2),
+                  });
+                }}
+                placeholder="请输入单价（默认商品销售价）"
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">销售总金额</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={outForm.totalAmount}
+                onChange={(e) => setOutForm({ ...outForm, totalAmount: e.target.value })}
+                placeholder="自动计算或手动输入"
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50"
               />
             </div>
 
@@ -3587,7 +3689,7 @@ const App = () => {
                 onClick={doOut}
                 className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700 flex items-center gap-2"
               >
-                <ArrowDownRight size={16} />确认出库
+                <ArrowDownRight size={16} />确认销售
               </button>
             </div>
           </div>
