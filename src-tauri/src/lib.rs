@@ -19,6 +19,7 @@ fn init_db_tables(conn: &Connection) -> Result<()> {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             price REAL NOT NULL,
+            cost_price REAL NOT NULL DEFAULT 0,
             stock INTEGER NOT NULL DEFAULT 0,
             brand TEXT,
             unit TEXT,
@@ -99,6 +100,7 @@ fn init_db_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE in_records ADD COLUMN supplier_name TEXT DEFAULT ''",
         "ALTER TABLE out_records ADD COLUMN recipient_name TEXT DEFAULT ''",
         "ALTER TABLE stock_flow ADD COLUMN destination TEXT DEFAULT ''",
+        "ALTER TABLE products ADD COLUMN cost_price REAL NOT NULL DEFAULT 0",
     ];
     for sql in &migrations {
         // ALTER TABLE ADD COLUMN 在列已存在时会报错，忽略即可
@@ -118,6 +120,8 @@ struct Product {
     id: i32,
     name: String,
     price: f64,
+    #[serde(rename = "costPrice", default)]
+    cost_price: f64,
     stock: i32,
     #[serde(default)]
     brand: String,
@@ -193,7 +197,7 @@ fn init_database(state: State<'_, AppState>) -> Result<(), String> {
 fn get_products(state: State<'_, AppState>) -> Result<Vec<Product>, String> {
     let conn = get_conn(&state)?;
     let mut stmt = conn
-        .prepare("SELECT id, name, price, stock, brand, unit, category, update_time FROM products")
+        .prepare("SELECT id, name, price, cost_price, stock, brand, unit, category, update_time FROM products")
         .map_err(|e| e.to_string())?;
 
     let rows = stmt
@@ -202,11 +206,12 @@ fn get_products(state: State<'_, AppState>) -> Result<Vec<Product>, String> {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 price: row.get(2)?,
-                stock: row.get(3)?,
-                brand: row.get(4).unwrap_or_default(),
-                unit: row.get(5).unwrap_or_default(),
-                category: row.get(6)?,
-                update_time: row.get(7)?,
+                cost_price: row.get(3).unwrap_or(0.0),
+                stock: row.get(4)?,
+                brand: row.get(5).unwrap_or_default(),
+                unit: row.get(6).unwrap_or_default(),
+                category: row.get(7)?,
+                update_time: row.get(8)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -222,8 +227,8 @@ fn get_products(state: State<'_, AppState>) -> Result<Vec<Product>, String> {
 fn add_product(product: Product, state: State<'_, AppState>) -> Result<Product, String> {
     let conn = get_conn(&state)?;
     conn.execute(
-        "INSERT INTO products (name, price, stock, brand, unit, category, update_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        rusqlite::params![product.name, product.price, product.stock, product.brand, product.unit, product.category, product.update_time],
+        "INSERT INTO products (name, price, cost_price, stock, brand, unit, category, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        rusqlite::params![product.name, product.price, product.cost_price, product.stock, product.brand, product.unit, product.category, product.update_time],
     )
     .map_err(|e| e.to_string())?;
 
@@ -235,8 +240,8 @@ fn add_product(product: Product, state: State<'_, AppState>) -> Result<Product, 
 fn update_product(product: Product, state: State<'_, AppState>) -> Result<Product, String> {
     let conn = get_conn(&state)?;
     conn.execute(
-        "UPDATE products SET name = ?, price = ?, stock = ?, brand = ?, unit = ?, category = ?, update_time = ? WHERE id = ?",
-        rusqlite::params![product.name, product.price, product.stock, product.brand, product.unit, product.category, product.update_time, product.id],
+        "UPDATE products SET name = ?, price = ?, cost_price = ?, stock = ?, brand = ?, unit = ?, category = ?, update_time = ? WHERE id = ?",
+        rusqlite::params![product.name, product.price, product.cost_price, product.stock, product.brand, product.unit, product.category, product.update_time, product.id],
     )
     .map_err(|e| e.to_string())?;
     Ok(product)

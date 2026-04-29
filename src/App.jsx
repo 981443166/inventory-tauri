@@ -273,6 +273,7 @@ const App = () => {
   // 商品管理相关状态（提前声明，避免在 useEffect 中访问未声明的变量）
   const [pname, setPname] = useState("");
   const [pprice, setPprice] = useState("");
+  const [pcostPrice, setPcostPrice] = useState("");
   const [pcategory, setPcategory] = useState("办公用品");
   const [pbrand, setPbrand] = useState("");
   const [punit, setPunit] = useState("");
@@ -815,6 +816,7 @@ const App = () => {
   const openAddProductModal = () => {
     setPname("");
     setPprice("");
+    setPcostPrice("");
     setPcategory(categories[0] || "办公用品");
     setPbrand(brands[0] || "");
     setPunit(units[0] || "");
@@ -826,6 +828,7 @@ const App = () => {
   const openEditProductModal = (product) => {
     setPname(product.name);
     setPprice(product.price.toString());
+    setPcostPrice((product.costPrice || 0).toString());
     setPcategory(product.category || categories[0] || "办公用品");
     setPbrand(product.brand || brands[0] || "");
     setPunit(product.unit || units[0] || "");
@@ -841,6 +844,7 @@ const App = () => {
       const productData = {
         name: pname,
         price: Number(pprice),
+        costPrice: Number(pcostPrice) || 0,
         stock: 0,
         category: pcategory,
         brand: pbrand,
@@ -1911,7 +1915,8 @@ const App = () => {
                                 <th className="px-4 py-3 text-left font-medium">商品名称</th>
                                 <th className="px-4 py-3 text-left font-medium">品牌</th>
                                 <th className="px-4 py-3 text-left font-medium">分类</th>
-                                <th className="px-4 py-3 text-left font-medium">单价</th>
+                                <th className="px-4 py-3 text-left font-medium">采购价</th>
+                                <th className="px-4 py-3 text-left font-medium">销售价</th>
                                 <th className="px-4 py-3 text-left font-medium">库存</th>
                                 <th className="px-4 py-3 text-left font-medium">单位</th>
                                 <th className="px-4 py-3 text-left font-medium">更新时间</th>
@@ -1926,6 +1931,7 @@ const App = () => {
                                     <td className="px-4 py-3 font-medium">{p.name}</td>
                                     <td className="px-4 py-3 text-gray-500">{p.brand || "-"}</td>
                                     <td className="px-4 py-3 text-gray-500">{p.category}</td>
+                                    <td className="px-4 py-3">¥{(p.costPrice || 0).toFixed(2)}</td>
                                     <td className="px-4 py-3">¥{p.price.toFixed(2)}</td>
                                     <td className="px-4 py-3">
                                       {p.stock > 50 ? (
@@ -3040,7 +3046,7 @@ const App = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                商品单价 <span className="text-red-500">*</span>
+                销售价 <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
@@ -3048,12 +3054,26 @@ const App = () => {
                 min="0"
                 value={pprice}
                 onChange={(e) => setPprice(e.target.value)}
-                placeholder="请输入商品单价"
+                placeholder="请输入销售价"
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
               {!pprice && (
-                <p className="text-xs text-red-500 mt-1">商品单价为必填项</p>
+                <p className="text-xs text-red-500 mt-1">销售价为必填项</p>
               )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                采购价
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={pcostPrice}
+                onChange={(e) => setPcostPrice(e.target.value)}
+                placeholder="请输入采购价"
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">品牌</label>
