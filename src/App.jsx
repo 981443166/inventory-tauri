@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+﻿﻿﻿import { useState, useEffect, useRef } from "react";
 import {
   ChevronRight,
   PlusCircle,
@@ -756,7 +756,7 @@ const App = () => {
   });
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [supplierModalMode, setSupplierModalMode] = useState("add");
-  const [editingSupplierId, setEditingSupplierId] = useState(null);
+  const [_editingSupplierId, _setEditingSupplierId] = useState(null);
   const [supplierForm, setSupplierForm] = useState({
     id: null,
     name: "",
@@ -2447,7 +2447,6 @@ const App = () => {
                                           <button
                                             onClick={() => {
                                               setSupplierModalMode("edit");
-                                              setEditingSupplierId(s.id);
                                               setSupplierForm({ ...s });
                                               setShowSupplierModal(true);
                                             }}
