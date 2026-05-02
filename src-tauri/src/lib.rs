@@ -433,6 +433,7 @@ fn get_records(r#type: String, state: State<'_, AppState>) -> Result<Vec<Record>
                     remark: row.get(5)?,
                     recipient_name: row.get(6)?,
                     supplier_name: String::new(),
+                    doc_type: String::new(),
                     create_time: row.get(7)?,
                 })
             })

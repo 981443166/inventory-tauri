@@ -1,4 +1,4 @@
-﻿﻿﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ChevronRight,
   PlusCircle,
@@ -14,21 +14,20 @@ import {
   Home,
   TrendingUp,
   TrendingDown,
-  DollarSign,
   BarChart3,
   Users,
-  Phone,
   Edit3,
   Eye,
   User,
   CheckCircle2,
   XCircle,
-  Receipt,
+
   AlertTriangle,
   Download,
   SortAsc,
   SortDesc,
   Clock,
+  Receipt,
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
   Filter,
@@ -225,6 +224,7 @@ const App = () => {
     category: "普通客户",
     source: "线下门店",
     address: "",
+    lastPurchaseDate: "",
   });
   const [customerModalMode, setCustomerModalMode] = useState("add"); // add | edit | view
 
@@ -281,34 +281,61 @@ const App = () => {
   const [productModalMode, setProductModalMode] = useState("add"); // add | edit
   const [editingProductId, setEditingProductId] = useState(null);
 
+  const syncCustomerDebt = (customerList, outRecordsList, paymentRecordsList) => {
+    return customerList.map((customer) => {
+      const customerOutRecords = outRecordsList.filter(
+        (r) => r.recipientName === customer.name
+      );
+      const totalSalesAmount = customerOutRecords.reduce((sum, r) => {
+        if (r.totalAmount) return sum + r.totalAmount;
+        const product = products.find((p) => p.id === r.productId);
+        return sum + (product ? product.price * Math.abs(r.quantity) : 0);
+      }, 0);
+      const totalPaid = (paymentRecordsList || paymentRecords)
+        .filter((p) => p.customerId === customer.id)
+        .reduce((sum, p) => sum + p.actualAmount, 0);
+      const actualDebt = Math.max(0, totalSalesAmount - totalPaid);
+      return { ...customer, debt: actualDebt.toString() };
+    });
+  };
+
+  const _applyCustomerDebtSync = (customerList, outRecordsList, paymentRecordsList) => {
+    const synced = syncCustomerDebt(customerList, outRecordsList, paymentRecordsList);
+    setCustomers(synced);
+    localStorage.setItem("inventory_customers", JSON.stringify(synced));
+    return synced;
+  };
+
   // 加载财务数据
-  const loadFinanceData = (customerList, outRecordsList) => {
+  const loadFinanceData = (customerList, outRecordsList, paymentRecordsList) => {
     setFinanceLoading(true);
 
-    // 生成财务对账数据 - 基于客户和销售记录
-    const reconciliation = customerList.map((customer) => {
+    const syncedCustomers = syncCustomerDebt(customerList, outRecordsList, paymentRecordsList);
+
+    const reconciliation = syncedCustomers.map((customer) => {
       const customerOutRecords = outRecordsList.filter(
         (r) => r.recipientName === customer.name
       );
       const totalAmount = customerOutRecords.reduce((sum, r) => {
+        if (r.totalAmount) return sum + r.totalAmount;
         const product = products.find((p) => p.id === r.productId);
         return sum + (product ? product.price * Math.abs(r.quantity) : 0);
       }, 0);
 
-      const paidAmount = customerOutRecords
-        .filter((r) => r.paymentStatus === "paid")
-        .reduce((sum, r) => {
-          const product = products.find((p) => p.id === r.productId);
-          return sum + (product ? product.price * Math.abs(r.quantity) : 0);
-        }, 0);
+      const paidAmount = (paymentRecordsList || paymentRecords)
+        .filter((p) => p.customerId === customer.id)
+        .reduce((sum, p) => sum + p.actualAmount, 0);
 
-      const unpaidAmount = totalAmount - paidAmount + Number(customer.debt || 0);
+      const unpaidAmount = Math.max(0, totalAmount - paidAmount);
       const lastTransactionDate = customerOutRecords.length > 0
         ? customerOutRecords[customerOutRecords.length - 1].createTime || customerOutRecords[customerOutRecords.length - 1].time
-        : new Date().toISOString().split('T')[0];
+        : "-";
 
-      // 确定状态：如果有未付款且逾期超过7天，标记为逾期
-      const hasOverdue = unpaidAmount > 0 && Number(customer.debt || 0) > 0;
+      const hasOverdue = unpaidAmount > 0 && customerOutRecords.some((r) => {
+        if (!r.createTime && !r.time) return false;
+        const recordDate = new Date(r.createTime || r.time);
+        return (Date.now() - recordDate.getTime()) > 7 * 24 * 60 * 60 * 1000;
+      });
 
       return {
         id: customer.id,
@@ -320,29 +347,56 @@ const App = () => {
         lastTransactionDate: lastTransactionDate,
         transactionCount: customerOutRecords.length,
         status: unpaidAmount > 0 ? (hasOverdue ? "overdue" : "unpaid") : "paid",
-        overdueDays: hasOverdue ? Math.floor(Math.random() * 30) + 1 : 0,
+        overdueDays: hasOverdue ? Math.max(1, Math.floor((Date.now() - new Date(customerOutRecords.find((r) => {
+          if (!r.createTime && !r.time) return false;
+          const d = new Date(r.createTime || r.time);
+          return (Date.now() - d.getTime()) > 7 * 24 * 60 * 60 * 1000;
+        })?.createTime || Date.now()).getTime()) / (24 * 60 * 60 * 1000))) : 0,
         category: customer.category,
       };
     }).filter(r => r.transactionCount > 0 || r.unpaidAmount > 0);
 
     // 生成欠款记录 - 基于客户欠款数据
-    const debtRecs = customerList
+    const debtRecs = syncedCustomers
       .filter((c) => Number(c.debt || 0) > 0)
-      .map((customer) => ({
-        id: customer.id + '_debt',
-        customerName: customer.name,
-        customerPhone: customer.phone,
-        debtAmount: Number(customer.debt),
-        debtDate: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        dueDate: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        status: Number(customer.debt) > 1000 ? "overdue" : "unpaid",
-        overdueDays: Number(customer.debt) > 1000 ? Math.floor(Math.random() * 15) + 1 : 0,
-        category: customer.category,
-        remark: "客户欠款",
-      }));
+      .map((customer) => {
+        const customerOutRecords = outRecordsList.filter(
+          (r) => r.recipientName === customer.name
+        );
+        const earliestRecord = customerOutRecords.length > 0
+          ? customerOutRecords.reduce((earliest, r) => {
+              const d = new Date(r.createTime || r.time);
+              return d < earliest ? d : earliest;
+            }, new Date())
+          : new Date();
+        const debtDate = earliestRecord.toISOString().split('T')[0];
+        const dueDate = new Date(earliestRecord.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const overdueDays = Math.max(0, Math.floor((Date.now() - new Date(dueDate).getTime()) / (24 * 60 * 60 * 1000)));
+        return {
+          id: customer.id + '_debt',
+          customerName: customer.name,
+          customerPhone: customer.phone,
+          debtAmount: Number(customer.debt),
+          debtDate: debtDate,
+          dueDate: dueDate,
+          status: overdueDays > 0 ? "overdue" : "unpaid",
+          overdueDays: overdueDays,
+          category: customer.category,
+          remark: "客户欠款",
+        };
+      });
 
     setReconciliationData(reconciliation);
     setDebtRecords(debtRecs);
+
+    const needsUpdate = syncedCustomers.some((sc, i) => {
+      const orig = customerList[i];
+      return orig && Number(sc.debt) !== Number(orig.debt);
+    });
+    if (needsUpdate) {
+      setCustomers(syncedCustomers);
+      localStorage.setItem("inventory_customers", JSON.stringify(syncedCustomers));
+    }
 
     setTimeout(() => setFinanceLoading(false), 300);
   };
@@ -399,11 +453,16 @@ const App = () => {
         let loadedCustomers = [];
         if (savedCustomers) {
           loadedCustomers = JSON.parse(savedCustomers);
+          // 兼容旧数据：补充 lastPurchaseDate 字段
+          loadedCustomers = loadedCustomers.map(c => ({
+            ...c,
+            lastPurchaseDate: c.lastPurchaseDate || "",
+          }));
           setCustomers(loadedCustomers);
         }
 
         // 加载财务数据 - 使用处理后的销售记录
-        loadFinanceData(loadedCustomers, processedOutRecords);
+        loadFinanceData(loadedCustomers, processedOutRecords, JSON.parse(localStorage.getItem("inventory_payment_records") || "[]"));
       } catch (error) {
         console.error("加载数据失败:", error);
         alert('请求异常: ' + error.message);
@@ -416,19 +475,8 @@ const App = () => {
 
   // 刷新财务数据
   const refreshFinanceData = () => {
-    loadFinanceData(customers, outRecords);
+    loadFinanceData(customers, outRecords, paymentRecords);
   };
-
-  // 当客户数据变化时，自动刷新财务数据
-  useEffect(() => {
-    if (customers.length > 0) {
-      // 使用 setTimeout 避免在 effect 中直接调用 setState
-      const timer = setTimeout(() => {
-        loadFinanceData(customers, outRecords);
-      }, 0);
-      return () => clearTimeout(timer);
-    }
-  }, [customers]);
 
   // 数字转中文大写金额
   const numberToChinese = (num) => {
@@ -519,27 +567,13 @@ const App = () => {
     const payment = paymentRecords.find((p) => p.id === paymentId);
     if (!payment) return;
     
-    // 恢复客户欠款
-    const updatedCustomers = customers.map((c) => {
-      if (c.id === payment.customerId) {
-        const newDebt = parseFloat(c.debt || 0) + payment.actualAmount;
-        return { ...c, debt: newDebt.toString() };
-      }
-      return c;
-    });
-    setCustomers(updatedCustomers);
-    localStorage.setItem("inventory_customers", JSON.stringify(updatedCustomers));
-    
-    // 删除收款记录
     const updatedRecords = paymentRecords.filter((p) => p.id !== paymentId);
     setPaymentRecords(updatedRecords);
     localStorage.setItem("inventory_payment_records", JSON.stringify(updatedRecords));
     
-    // 更新当前显示的收款记录
     setSelectedCustomerPayments(updatedRecords.filter((p) => p.customerId === payment.customerId));
     
-    // 刷新财务数据
-    loadFinanceData(updatedCustomers, outRecords);
+    loadFinanceData(customers, outRecords, updatedRecords);
     
     alert("收款记录已删除，客户欠款已恢复");
   };
@@ -576,21 +610,6 @@ const App = () => {
     const oldPayment = paymentRecords.find((p) => p.id === editingPaymentId);
     if (!oldPayment) return;
     
-    // 计算差额
-    const amountDiff = newActualAmount - oldPayment.actualAmount;
-    
-    // 更新客户欠款
-    const updatedCustomers = customers.map((c) => {
-      if (c.id === oldPayment.customerId) {
-        const newDebt = Math.max(0, parseFloat(c.debt || 0) - amountDiff);
-        return { ...c, debt: newDebt.toString() };
-      }
-      return c;
-    });
-    setCustomers(updatedCustomers);
-    localStorage.setItem("inventory_customers", JSON.stringify(updatedCustomers));
-    
-    // 更新收款记录
     const updatedRecords = paymentRecords.map((p) => {
       if (p.id === editingPaymentId) {
         return {
@@ -610,15 +629,12 @@ const App = () => {
     setPaymentRecords(updatedRecords);
     localStorage.setItem("inventory_payment_records", JSON.stringify(updatedRecords));
     
-    // 更新当前显示的收款记录
     setSelectedCustomerPayments(updatedRecords.filter((p) => p.customerId === oldPayment.customerId));
     
-    // 关闭编辑弹窗
     setEditingPaymentId(null);
     setEditPaymentForm(null);
     
-    // 刷新财务数据
-    loadFinanceData(updatedCustomers, outRecords);
+    loadFinanceData(customers, outRecords, updatedRecords);
     
     alert("收款记录已更新");
   };
@@ -646,16 +662,13 @@ const App = () => {
     
     const actualAmount = amount - discount;
     
-    // 查找客户
     const customer = customers.find((c) => c.id === paymentForm.customerId);
     if (!customer) {
       alert("客户不存在");
       return;
     }
     
-    // 检查欠款余额
-    const customerDebt = debtRecords.find((d) => d.customerName === customer.name);
-    const currentDebt = customerDebt ? customerDebt.debtAmount : 0;
+    const currentDebt = Number(customer.debt || 0);
     
     if (actualAmount > currentDebt) {
       alert(`收款金额超过客户欠款余额！\n当前欠款：¥${currentDebt.toFixed(2)}\n实际应收：¥${actualAmount.toFixed(2)}`);
@@ -677,26 +690,12 @@ const App = () => {
       createTime: new Date().toISOString(),
     };
     
-    // 更新收款记录
     const updatedRecords = [newPaymentRecord, ...paymentRecords];
     setPaymentRecords(updatedRecords);
     localStorage.setItem("inventory_payment_records", JSON.stringify(updatedRecords));
     
-    // 更新客户欠款
-    const updatedCustomers = customers.map((c) => {
-      if (c.id === paymentForm.customerId) {
-        const newDebt = Math.max(0, parseFloat(c.debt || 0) - actualAmount);
-        return { ...c, debt: newDebt.toString() };
-      }
-      return c;
-    });
-    setCustomers(updatedCustomers);
-    localStorage.setItem("inventory_customers", JSON.stringify(updatedCustomers));
+    loadFinanceData(customers, outRecords, updatedRecords);
     
-    // 刷新财务数据
-    loadFinanceData(updatedCustomers, outRecords);
-    
-    // 关闭弹窗
     setShowPaymentModal(false);
     
     // 显示成功提示
@@ -705,6 +704,7 @@ const App = () => {
 
   // 库存日志状态
   const [showStockLogModal, setShowStockLogModal] = useState(false);
+  const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
   const [stockLogs, setStockLogs] = useState([]);
   const [logFilterType, setLogFilterType] = useState("all"); // all | in | out
   const [_logFilterProduct, _setLogFilterProduct] = useState("");
@@ -1097,7 +1097,7 @@ const App = () => {
       localStorage.setItem("inventory_out_extras", JSON.stringify(extrasMap));
     }
     // 触发财务数据刷新
-    loadFinanceData(customers, updated);
+    loadFinanceData(customers, updated, paymentRecords);
   };
 
   // ---------- 销售 ----------
@@ -1206,7 +1206,7 @@ const App = () => {
         paymentStatus: extrasMap[r.id]?.paymentStatus || r.paymentStatus || "unpaid",
         unitPrice: extrasMap[r.id]?.unitPrice || r.unitPrice || 0,
         totalAmount: extrasMap[r.id]?.totalAmount || r.totalAmount || 0,
-      })));
+      })), paymentRecords);
     } catch (e) {
       console.error("销售操作失败:", e);
       alert("销售操作失败：" + e.message);
@@ -1644,6 +1644,7 @@ const App = () => {
                               category: "普通客户",
                               source: "线下门店",
                               address: "",
+                              lastPurchaseDate: "",
                             });
                             setShowCustomerModal(true);
                           }}
@@ -1662,6 +1663,7 @@ const App = () => {
                               <th className="px-4 py-3 text-left font-medium">欠款金额</th>
                               <th className="px-4 py-3 text-left font-medium">客户分类</th>
                               <th className="px-4 py-3 text-left font-medium">来源方式</th>
+                              <th className="px-4 py-3 text-left font-medium">上次购买</th>
                               <th className="px-4 py-3 text-right font-medium rounded-tr-lg">操作</th>
                             </tr>
                           </thead>
@@ -1695,6 +1697,7 @@ const App = () => {
                                     </span>
                                   </td>
                                   <td className="px-4 py-3 text-gray-500">{c.source}</td>
+                                  <td className="px-4 py-3 text-gray-500">{c.lastPurchaseDate || "无记录"}</td>
                                   <td className="px-4 py-3 text-right">
                                     <div className="flex items-center justify-end gap-1">
                                       <button
@@ -1726,7 +1729,7 @@ const App = () => {
                                             setCustomers(updated);
                                             localStorage.setItem("inventory_customers", JSON.stringify(updated));
                                             // 触发财务数据刷新
-                                            loadFinanceData(updated, outRecords);
+                                            loadFinanceData(updated, outRecords, paymentRecords);
                                           }
                                         }}
                                         className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
@@ -1768,7 +1771,7 @@ const App = () => {
                               </p>
                             </div>
                             <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center text-white">
-                              <DollarSign size={24} />
+                              <span className="text-xl font-bold">¥</span>
                             </div>
                           </div>
                           <p className="text-xs text-blue-500 mt-2">基于当前库存与单价计算</p>
@@ -1785,7 +1788,7 @@ const App = () => {
                               </p>
                             </div>
                             <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center text-white">
-                              <DollarSign size={24} />
+                              <span className="text-xl font-bold">¥</span>
                             </div>
                           </div>
                           <p className="text-xs text-purple-500 mt-2">基于销售记录累计计算</p>
@@ -1845,10 +1848,14 @@ const App = () => {
                                 ¥{products.length > 0 ? (products.reduce((sum, p) => sum + p.price, 0) / products.length).toFixed(2) : "0.00"}
                               </span>
                             </div>
-                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <span className="text-sm text-gray-600">缺货商品</span>
-                              <span className="text-lg font-bold text-red-500">
+                            <div
+                              onClick={() => setShowOutOfStockModal(true)}
+                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-red-50 transition-colors group"
+                            >
+                              <span className="text-sm text-gray-600 group-hover:text-red-600">缺货商品</span>
+                              <span className="text-lg font-bold text-red-500 flex items-center gap-1">
                                 {products.filter((p) => p.stock === 0).length} 种
+                                <ChevronRight size={14} className="text-gray-400 group-hover:text-red-400" />
                               </span>
                             </div>
                           </div>
@@ -2276,7 +2283,6 @@ const App = () => {
                             </div>
                             <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4">
                               <div className="flex items-center gap-2">
-                                <DollarSign size={18} className="text-purple-600" />
                                 <span className="text-sm text-purple-600 font-medium">采购总金额</span>
                               </div>
                               <p className="text-2xl font-bold text-gray-800 mt-1">
@@ -2702,11 +2708,11 @@ const App = () => {
                   type="number"
                   step="0.01"
                   value={customerForm.debt}
-                  onChange={(e) => setCustomerForm({ ...customerForm, debt: e.target.value })}
+                  readOnly
                   placeholder="0.00"
-                  disabled={customerModalMode === "view"}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-50 disabled:text-gray-500"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
                 />
+                <p className="text-xs text-gray-400 mt-1">由销售和收款记录自动计算</p>
               </div>
 
               <div>
@@ -2735,6 +2741,18 @@ const App = () => {
                     <option key={src} value={src}>{src}</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">上次购买日期</label>
+                <input
+                  type="date"
+                  value={customerForm.lastPurchaseDate || ""}
+                  onChange={(e) => setCustomerForm({ ...customerForm, lastPurchaseDate: e.target.value })}
+                  disabled={customerModalMode === "view"}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-50 disabled:text-gray-500"
+                />
+                <p className="text-xs text-gray-400 mt-1">留空则自动读取销售记录</p>
               </div>
 
               <div className="sm:col-span-2">
@@ -2773,19 +2791,19 @@ const App = () => {
                       const newCustomer = {
                         ...customerForm,
                         id: Date.now(),
-                        debt: Number(customerForm.debt) || 0,
+                        debt: 0,
+                        lastPurchaseDate: customerForm.lastPurchaseDate || "",
                       };
                       updated = [...customers, newCustomer];
                     } else {
                       updated = customers.map((c) =>
-                        c.id === customerForm.id ? { ...customerForm, debt: Number(customerForm.debt) || 0 } : c,
+                        c.id === customerForm.id ? { ...customerForm, debt: c.debt, lastPurchaseDate: customerForm.lastPurchaseDate || "" } : c,
                       );
                     }
                     setCustomers(updated);
                     localStorage.setItem("inventory_customers", JSON.stringify(updated));
                     setShowCustomerModal(false);
-                    // 触发财务数据刷新
-                    loadFinanceData(updated, outRecords);
+                    loadFinanceData(updated, outRecords, paymentRecords);
                   }}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 flex items-center gap-2"
                 >
@@ -2843,6 +2861,12 @@ const App = () => {
                   <p className="text-xs text-gray-500">交易笔数</p>
                   <p className="font-medium text-gray-800">{selectedCustomerDetail.transactionCount} 笔</p>
                 </div>
+                <div>
+                  <p className="text-xs text-gray-500">上次购买</p>
+                  <p className="font-medium text-gray-800">
+                    {selectedCustomerDetail.lastTransactionDate || "-"}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -2880,7 +2904,7 @@ const App = () => {
                       }}
                       className="px-3 py-1 text-xs text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors flex items-center gap-1"
                     >
-                      <DollarSign size={12} /> 新增收款
+                      新增收款
                     </button>
                   )}
                 </div>
@@ -3053,7 +3077,7 @@ const App = () => {
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-white">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                  <Receipt size={20} className="text-purple-600" />
+                  <span className="text-lg font-bold text-purple-600">收</span>
                 </div>
                 <div>
                   <h4 className="text-lg font-bold text-gray-900">收款记录</h4>
@@ -3159,7 +3183,7 @@ const App = () => {
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-gray-400">
                   <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-3">
-                    <Receipt size={32} className="text-gray-300" />
+                    <span className="text-2xl font-bold text-gray-300">收</span>
                   </div>
                   <p className="text-sm">暂无收款记录</p>
                   <p className="text-xs mt-1">该客户暂未有收款记录</p>
@@ -3571,6 +3595,79 @@ const App = () => {
         </div>
       )}
 
+      {/* 缺货商品弹窗 */}
+      {showOutOfStockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl relative max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-red-50 to-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                  <AlertTriangle size={20} className="text-red-600" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-gray-900">缺货商品</h4>
+                  <p className="text-xs text-gray-500">库存为零的商品列表</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowOutOfStockModal(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto px-6 py-4">
+              {products.filter((p) => p.stock === 0).length > 0 ? (
+                <div className="space-y-3">
+                  {products
+                    .filter((p) => p.stock === 0)
+                    .map((p) => (
+                      <div key={p.id} className="flex items-center justify-between p-4 bg-red-50/50 border border-red-100 rounded-xl hover:bg-red-50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                            <Package size={18} className="text-red-500" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-800">{p.name}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {p.category && <span className="mr-2">{p.category}</span>}
+                              {p.brand && <span className="mr-2">{p.brand}</span>}
+                              {p.unit && <span>{p.unit}</span>}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-gray-700">¥{p.price?.toFixed(2) || "0.00"}</p>
+                          <p className="text-xs text-red-500 font-medium">库存为0</p>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                  <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mb-3">
+                    <Package size={32} className="text-green-400" />
+                  </div>
+                  <p className="text-sm font-medium text-green-600">暂无缺货商品</p>
+                  <p className="text-xs text-gray-400 mt-1">所有商品库存充足</p>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-3 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                共 <span className="font-semibold text-red-600">{products.filter((p) => p.stock === 0).length}</span> 种缺货商品
+              </p>
+              <button
+                onClick={() => setShowOutOfStockModal(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 库存日志弹窗 */}
       {showStockLogModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
@@ -3885,7 +3982,7 @@ const App = () => {
             {/* 客户选择 */}
             <div className="relative" ref={recipientDropdownRef}>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                <span className="flex items-center gap-1">
+                <span>
                   <User size={14} /> 客户
                 </span>
               </label>
@@ -4248,7 +4345,7 @@ const FinanceModule = ({
                 </p>
               </div>
               <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center text-white">
-                <DollarSign size={24} />
+                <span className="text-xl font-bold">¥</span>
               </div>
             </div>
             <p className="text-xs text-blue-500 mt-2">{reconciliationData.length} 位客户</p>
@@ -4346,7 +4443,7 @@ const FinanceModule = ({
                     className="px-4 py-3 text-left font-medium cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort("customerName")}
                   >
-                    <div className="flex items-center gap-1">
+                    <div>
                       客户名称 <SortIcon field="customerName" financeSortField={financeSortField} financeSortOrder={financeSortOrder} />
                     </div>
                   </th>
@@ -4354,7 +4451,7 @@ const FinanceModule = ({
                     className="px-4 py-3 text-left font-medium cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort("totalAmount")}
                   >
-                    <div className="flex items-center gap-1">
+                    <div>
                       交易总额 <SortIcon field="totalAmount" financeSortField={financeSortField} financeSortOrder={financeSortOrder} />
                     </div>
                   </th>
@@ -4363,7 +4460,7 @@ const FinanceModule = ({
                     className="px-4 py-3 text-left font-medium cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort("unpaidAmount")}
                   >
-                    <div className="flex items-center gap-1">
+                    <div>
                       未付金额 <SortIcon field="unpaidAmount" financeSortField={financeSortField} financeSortOrder={financeSortOrder} />
                     </div>
                   </th>
@@ -4390,20 +4487,14 @@ const FinanceModule = ({
                     <td className="px-4 py-3 text-gray-600">{item.transactionCount} 笔</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{item.lastTransactionDate}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                         item.status === "paid"
                           ? "bg-green-100 text-green-700"
                           : item.status === "overdue"
                             ? "bg-red-100 text-red-700"
                             : "bg-orange-100 text-orange-700"
                       }`}>
-                        {item.status === "paid" ? (
-                          <><CheckCircle2 size={12} />已结清</>
-                        ) : item.status === "overdue" ? (
-                          <><AlertTriangle size={12} />已逾期</>
-                        ) : (
-                          <><Clock size={12} />未结清</>
-                        )}
+                        {item.status === "paid" ? "已结清" : item.status === "overdue" ? "已逾期" : "未结清"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -4532,9 +4623,7 @@ const FinanceModule = ({
                   <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-800">{item.customerName}</div>
-                      <div className="text-xs text-gray-500 flex items-center gap-1">
-                        <Phone size={12} /> {item.customerPhone}
-                      </div>
+                      <div>{item.customerPhone}</div>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
@@ -4557,7 +4646,7 @@ const FinanceModule = ({
                     <td className="px-4 py-3 text-center text-gray-600">{item.transactionCount} 笔</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{item.lastTransactionDate}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                         item.status === "paid"
                           ? "bg-green-100 text-green-700"
                           : item.status === "overdue"
@@ -4572,16 +4661,16 @@ const FinanceModule = ({
                         {item.unpaidAmount > 0 && (
                           <button
                             onClick={() => openPaymentModal(item)}
-                            className="px-3 py-1.5 text-sm text-green-600 hover:bg-green-50 rounded-lg transition-colors flex items-center gap-1"
+                            className="px-3 py-1.5 text-sm text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                           >
-                            <DollarSign size={14} /> 收款
+                            收款
                           </button>
                         )}
                         <button
                           onClick={() => openPaymentRecordsModal(item)}
-                          className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg transition-colors flex items-center gap-1"
+                          className="px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                         >
-                          <Receipt size={14} /> 收款记录
+                          收款记录
                         </button>
                         <button
                           onClick={() => viewCustomerDetail(item)}
@@ -4772,16 +4861,12 @@ const FinanceModule = ({
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                         item.status === "overdue"
                           ? "bg-red-100 text-red-700"
                           : "bg-orange-100 text-orange-700"
                       }`}>
-                        {item.status === "overdue" ? (
-                          <><AlertTriangle size={12} />已逾期</>
-                        ) : (
-                          <><Clock size={12} />未付款</>
-                        )}
+                        {item.status === "overdue" ? "已逾期" : "未付款"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{item.remark}</td>
@@ -4872,7 +4957,7 @@ const PaymentModal = ({ show, onClose, paymentForm, setPaymentForm, onSubmit, nu
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-white">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-              <DollarSign size={20} className="text-green-600" />
+              <span className="text-lg font-bold text-green-600">¥</span>
             </div>
             <div>
               <h4 className="text-lg font-bold text-gray-900">客户收款</h4>
@@ -4948,7 +5033,7 @@ const PaymentModal = ({ show, onClose, paymentForm, setPaymentForm, onSubmit, nu
                 </p>
               </div>
               <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center text-white">
-                <Receipt size={24} />
+                <span className="text-xl font-bold">收</span>
               </div>
             </div>
             {actualAmount > 0 && (
