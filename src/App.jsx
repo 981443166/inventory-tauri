@@ -1020,7 +1020,7 @@ const App = () => {
         category: pcategory,
         brand: pbrand,
         unit: punit,
-        update_time: new Date().toISOString().split('T')[0],
+        updateTime: new Date().toISOString().split('T')[0],
       };
       
       if (productModalMode === "add") {
@@ -1186,7 +1186,7 @@ const App = () => {
       // 2. 更新商品库存（原子操作）
       const updatedProducts = products.map((p) => {
         if (p.id === id) {
-          return { ...p, stock: afterStock, update_time: new Date().toISOString().split('T')[0] };
+          return { ...p, stock: afterStock, updateTime: new Date().toISOString().split('T')[0] };
         }
         return p;
       });
@@ -1347,7 +1347,7 @@ const App = () => {
       // 2. 更新商品库存（原子操作）
       const updatedProducts = products.map((p) => {
         if (p.id === id) {
-          return { ...p, stock: afterStock, update_time: new Date().toISOString().split('T')[0] };
+          return { ...p, stock: afterStock, updateTime: new Date().toISOString().split('T')[0] };
         }
         return p;
       });
@@ -1531,20 +1531,24 @@ const App = () => {
                 </span>
               </>
             )}
+            {tab === "finance" && financeSubTab !== "overview" && (
+              <>
+                <ChevronRight size={14} className="text-gray-400" />
+                <span className="font-medium text-gray-800">
+                  {financeSubTab === "reconciliation"
+                    ? "客户对账"
+                    : "欠款管理"}
+                </span>
+              </>
+            )}
+            {tab === "in" && inSubTab !== "records" && (
+              <>
+                <ChevronRight size={14} className="text-gray-400" />
+                <span className="font-medium text-gray-800">供应商管理</span>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            {tab === "home" && (
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="搜索商品"
-                  value={searchKey}
-                  onChange={(e) => setSearchKey(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
-              </div>
-            )}
             {tab === "stock" && (
               <div className="relative">
                 <Search

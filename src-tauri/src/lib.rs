@@ -136,6 +136,7 @@ struct Product {
     #[serde(default)]
     unit: String,
     category: String,
+    #[serde(rename = "updateTime")]
     update_time: String,
 }
 
