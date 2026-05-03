@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import {
   ChevronRight,
   PlusCircle,
@@ -32,8 +32,17 @@ import {
   ChevronRight as ChevronRightIcon,
   Filter,
   Calendar,
+  DollarSign,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+
+const formatTime = (t) => {
+  if (!t) return "-";
+  const d = new Date(t);
+  if (isNaN(d.getTime())) return t;
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
 
 // API 适配层 - 优先使用 Tauri invoke，降级到本地存储
 const api = {
@@ -187,6 +196,48 @@ const api = {
       records.push(record);
       localStorage.setItem(`inventory_records_${type}`, JSON.stringify(records));
       return record;
+    }
+  },
+  updateInRecord: async (id, productId, quantity, remark, supplierName, docType) => {
+    try {
+      return await invoke("update_in_record", { id, productId, quantity, remark, supplierName, docType });
+    } catch (_e) {
+      const records = JSON.parse(localStorage.getItem("inventory_records_in") || "[]");
+      const updated = records.map((r) => {
+        if (r.id === id) {
+          return { ...r, productId, quantity, remark, supplierName, docType };
+        }
+        return r;
+      });
+      localStorage.setItem("inventory_records_in", JSON.stringify(updated));
+      return true;
+    }
+  },
+  deleteInRecord: async (id) => {
+    try {
+      return await invoke("delete_in_record", { id });
+    } catch (_e) {
+      const records = JSON.parse(localStorage.getItem("inventory_records_in") || "[]");
+      const filtered = records.filter((r) => r.id !== id);
+      localStorage.setItem("inventory_records_in", JSON.stringify(filtered));
+      return true;
+    }
+  },
+  deleteOutRecord: async (id) => {
+    try {
+      return await invoke("delete_out_record", { id });
+    } catch (_e) {
+      const records = JSON.parse(localStorage.getItem("inventory_records_out") || "[]");
+      const filtered = records.filter((r) => r.id !== id);
+      localStorage.setItem("inventory_records_out", JSON.stringify(filtered));
+      return true;
+    }
+  },
+  updatePaymentStatus: async (id, paymentStatus) => {
+    try {
+      return await invoke("update_payment_status", { id, paymentStatus });
+    } catch (_e) {
+      return true;
     }
   },
 };
@@ -434,17 +485,14 @@ const App = () => {
         if (categoryList.length > 0 && !pcategory) setPcategory(categoryList[0]);
         if (unitList.length > 0 && !punit) setPunit(unitList[0]);
         // 修正时间字段映射
-        setInRecords(inRecordsRes.map((r) => ({ ...r, time: r.createTime })));
-        // 合并销售记录的本地扩展字段
-        const savedOutExtras = localStorage.getItem("inventory_out_extras");
-        const extrasMap = savedOutExtras ? JSON.parse(savedOutExtras) : {};
+        setInRecords(inRecordsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })));
         const processedOutRecords = outRecordsRes.map((r) => ({
           ...r,
-          time: r.createTime,
-          recipientName: extrasMap[r.id]?.recipientName || r.recipientName || "",
-          paymentStatus: extrasMap[r.id]?.paymentStatus || r.paymentStatus || "unpaid",
-          unitPrice: extrasMap[r.id]?.unitPrice || r.unitPrice || 0,
-          totalAmount: extrasMap[r.id]?.totalAmount || r.totalAmount || 0,
+          time: formatTime(r.createTime),
+          recipientName: r.recipientName || "",
+          paymentStatus: r.paymentStatus || "unpaid",
+          unitPrice: r.unitPrice || 0,
+          totalAmount: r.totalAmount || 0,
         }));
         setOutRecords(processedOutRecords);
 
@@ -721,6 +769,15 @@ const App = () => {
   // 采购销售弹窗状态
   const [showInModal, setShowInModal] = useState(false);
   const [showOutModal, setShowOutModal] = useState(false);
+  const [showEditInModal, setShowEditInModal] = useState(false);
+  const [editInForm, setEditInForm] = useState({
+    id: null,
+    productId: "",
+    quantity: "",
+    remark: "",
+    docType: "purchase",
+    supplierName: "",
+  });
   const [inForm, setInForm] = useState({
     productId: "",
     quantity: "",
@@ -745,6 +802,92 @@ const App = () => {
   const [outSearchText, setOutSearchText] = useState("");
   const [outDropdownOpen, setOutDropdownOpen] = useState(false);
   const [supplierSearchText, setSupplierSearchText] = useState("");
+
+  const [inFilter, setInFilter] = useState({
+    supplierName: "",
+    docType: "all",
+    productName: "",
+    dateStart: "",
+    dateEnd: "",
+  });
+
+  const activeFilterCount = (filter) => {
+    let count = 0;
+    if (filter.supplierName) count++;
+    if (filter.docType && filter.docType !== "all") count++;
+    if (filter.productName) count++;
+    if (filter.dateStart) count++;
+    if (filter.dateEnd) count++;
+    return count;
+  };
+
+  const getFilteredInRecords = () => {
+    return inRecords.filter((r) => {
+      if (inFilter.supplierName) {
+        if (!r.supplierName || !r.supplierName.includes(inFilter.supplierName)) return false;
+      }
+      if (inFilter.docType && inFilter.docType !== "all") {
+        if ((r.docType || "purchase") !== inFilter.docType) return false;
+      }
+      if (inFilter.productName) {
+        const product = products.find((p) => p.id === r.productId);
+        const productName = product?.name || r.productName || "";
+        if (!productName.includes(inFilter.productName)) return false;
+      }
+      if (inFilter.dateStart) {
+        const recordDate = (r.createTime || r.time || "").split(" ")[0].split("T")[0];
+        if (recordDate < inFilter.dateStart) return false;
+      }
+      if (inFilter.dateEnd) {
+        const recordDate = (r.createTime || r.time || "").split(" ")[0].split("T")[0];
+        if (recordDate > inFilter.dateEnd) return false;
+      }
+      return true;
+    });
+  };
+
+  const [outFilter, setOutFilter] = useState({
+    customerName: "",
+    paymentStatus: "all",
+    productName: "",
+    dateStart: "",
+    dateEnd: "",
+  });
+
+  const activeOutFilterCount = (filter) => {
+    let count = 0;
+    if (filter.customerName) count++;
+    if (filter.paymentStatus && filter.paymentStatus !== "all") count++;
+    if (filter.productName) count++;
+    if (filter.dateStart) count++;
+    if (filter.dateEnd) count++;
+    return count;
+  };
+
+  const getFilteredOutRecords = () => {
+    return outRecords.filter((r) => {
+      if (outFilter.customerName) {
+        if (!r.recipientName || !r.recipientName.includes(outFilter.customerName)) return false;
+      }
+      if (outFilter.paymentStatus && outFilter.paymentStatus !== "all") {
+        if ((r.paymentStatus || "unpaid") !== outFilter.paymentStatus) return false;
+      }
+      if (outFilter.productName) {
+        const product = products.find((p) => p.id === r.productId);
+        const productName = product?.name || r.productName || "";
+        if (!productName.includes(outFilter.productName)) return false;
+      }
+      if (outFilter.dateStart) {
+        const recordDate = (r.createTime || r.time || "").split(" ")[0].split("T")[0];
+        if (recordDate < outFilter.dateStart) return false;
+      }
+      if (outFilter.dateEnd) {
+        const recordDate = (r.createTime || r.time || "").split(" ")[0].split("T")[0];
+        if (recordDate > outFilter.dateEnd) return false;
+      }
+      return true;
+    });
+  };
 
   // 供应商管理状态
   const [suppliers, setSuppliers] = useState(() => {
@@ -1057,7 +1200,7 @@ const App = () => {
       
       // 5. 刷新采购记录列表
       const inRecsRes = await api.getRecords("in");
-      setInRecords(inRecsRes.map((r) => ({ ...r, time: r.createTime })));
+      setInRecords(inRecsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })));
       
       // 6. 显示操作结果
       alert(`采购成功！\n商品：${product.name}\n采购数量：${num}\n采购前库存：${beforeStock}\n采购后库存：${afterStock}`);
@@ -1076,28 +1219,80 @@ const App = () => {
   };
 
   // 切换销售记录付款状态
-  const togglePaymentStatus = (recordId) => {
+  const togglePaymentStatus = async (recordId) => {
+    const targetRecord = outRecords.find((r) => r.id === recordId);
+    if (!targetRecord) return;
+    const newStatus = targetRecord.paymentStatus === "paid" ? "unpaid" : "paid";
+    try {
+      await api.updatePaymentStatus(recordId, newStatus);
+    } catch (_e) { /* fallback: update UI only */ }
     const updated = outRecords.map((r) => {
       if (r.id === recordId) {
-        const newStatus = r.paymentStatus === "paid" ? "unpaid" : "paid";
         return { ...r, paymentStatus: newStatus };
       }
       return r;
     });
     setOutRecords(updated);
-    // 同步扩展字段到 localStorage
-    const savedOutExtras = localStorage.getItem("inventory_out_extras");
-    const extrasMap = savedOutExtras ? JSON.parse(savedOutExtras) : {};
-    const targetRecord = updated.find((r) => r.id === recordId);
-    if (targetRecord) {
-      extrasMap[recordId] = {
-        recipientName: targetRecord.recipientName,
-        paymentStatus: targetRecord.paymentStatus,
-      };
-      localStorage.setItem("inventory_out_extras", JSON.stringify(extrasMap));
-    }
-    // 触发财务数据刷新
     loadFinanceData(customers, updated, paymentRecords);
+  };
+
+  const openEditInModal = (record) => {
+    setEditInForm({
+      id: record.id,
+      productId: record.productId,
+      quantity: record.quantity,
+      remark: record.remark || "",
+      docType: record.docType || "purchase",
+      supplierName: record.supplierName || "",
+    });
+    setShowEditInModal(true);
+  };
+
+  const saveEditInRecord = async () => {
+    const { id, productId, quantity, remark, docType, supplierName } = editInForm;
+    const q = parseInt(quantity);
+    if (!id || isNaN(parseInt(productId)) || isNaN(q) || q <= 0) {
+      alert("请填写完整且有效的信息");
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.updateInRecord(
+        id,
+        parseInt(productId),
+        q,
+        remark || "",
+        supplierName || "",
+        docType || "purchase"
+      );
+      const inRecsRes = await api.getRecords("in");
+      setInRecords(inRecsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })));
+      const updatedProducts = await api.getProducts();
+      setProducts(updatedProducts);
+      setShowEditInModal(false);
+      alert("采购记录修改成功！");
+    } catch (e) {
+      alert("修改失败：" + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteInRecord = async (recordId) => {
+    if (!window.confirm("确定要删除这条采购记录吗？删除后库存将自动回退。")) return;
+    setLoading(true);
+    try {
+      await api.deleteInRecord(recordId);
+      const inRecsRes = await api.getRecords("in");
+      setInRecords(inRecsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })));
+      const updatedProducts = await api.getProducts();
+      setProducts(updatedProducts);
+      alert("采购记录已删除");
+    } catch (e) {
+      alert("删除失败：" + e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ---------- 销售 ----------
@@ -1145,6 +1340,8 @@ const App = () => {
         unitPrice: unitPrice,
         totalAmount: totalAmount,
         remark: outForm.remark,
+        recipientName: outForm.recipientName || "",
+        paymentStatus: outForm.paymentStatus || "unpaid",
       });
       
       // 2. 更新商品库存（原子操作）
@@ -1164,30 +1361,15 @@ const App = () => {
       
       // 5. 刷新销售记录列表
       const outRecsRes = await api.getRecords("out");
-      // 合并后端数据和本地存储的扩展字段（recipientName, paymentStatus）
-      const savedOutExtras = localStorage.getItem("inventory_out_extras");
-      const extrasMap = savedOutExtras ? JSON.parse(savedOutExtras) : {};
-
-      // 保存当前新记录的扩展字段
-      const result = outRecsRes[outRecsRes.length - 1];
-      if (result) {
-        extrasMap[result.id] = {
-          recipientName: outForm.recipientName,
-          paymentStatus: outForm.paymentStatus,
-          unitPrice: unitPrice,
-          totalAmount: totalAmount,
-        };
-        localStorage.setItem("inventory_out_extras", JSON.stringify(extrasMap));
-      }
-
-      setOutRecords(outRecsRes.map((r) => ({
+      const processedOutRecs = outRecsRes.map((r) => ({
         ...r,
-        time: r.createTime,
-        recipientName: extrasMap[r.id]?.recipientName || r.recipientName || "",
-        paymentStatus: extrasMap[r.id]?.paymentStatus || r.paymentStatus || "unpaid",
-        unitPrice: extrasMap[r.id]?.unitPrice || r.unitPrice || 0,
-        totalAmount: extrasMap[r.id]?.totalAmount || r.totalAmount || 0,
-      })));
+        time: formatTime(r.createTime),
+        recipientName: r.recipientName || "",
+        paymentStatus: r.paymentStatus || "unpaid",
+        unitPrice: r.unitPrice || 0,
+        totalAmount: r.totalAmount || 0,
+      }));
+      setOutRecords(processedOutRecs);
       
       // 6. 显示操作结果
       alert(`销售成功！\n商品：${product.name}\n销售数量：${num}\n单价：¥${unitPrice.toFixed(2)}\n销售总金额：¥${totalAmount.toFixed(2)}\n销售前库存：${beforeStock}\n销售后库存：${afterStock}`);
@@ -1199,14 +1381,7 @@ const App = () => {
       setRecipientSearchText("");
       
       // 8. 触发财务数据刷新
-      loadFinanceData(customers, outRecsRes.map((r) => ({
-        ...r,
-        time: r.createTime,
-        recipientName: extrasMap[r.id]?.recipientName || r.recipientName || "",
-        paymentStatus: extrasMap[r.id]?.paymentStatus || r.paymentStatus || "unpaid",
-        unitPrice: extrasMap[r.id]?.unitPrice || r.unitPrice || 0,
-        totalAmount: extrasMap[r.id]?.totalAmount || r.totalAmount || 0,
-      })), paymentRecords);
+      loadFinanceData(customers, processedOutRecs, paymentRecords);
     } catch (e) {
       console.error("销售操作失败:", e);
       alert("销售操作失败：" + e.message);
@@ -1796,16 +1971,27 @@ const App = () => {
                         <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-5">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm text-green-600 font-medium">本月采购总量</p>
+                              <p className="text-sm text-green-600 font-medium">利润</p>
                               <p className="text-2xl font-bold text-gray-800 mt-1">
-                                {inRecords.reduce((sum, r) => sum + r.quantity, 0)} 件
+                                ¥{(() => {
+                                  const salesRevenue = outRecords.reduce((sum, r) => {
+                                    if (r.totalAmount) return sum + r.totalAmount;
+                                    const product = products.find((p) => p.id === r.productId);
+                                    return sum + (product ? product.price * Math.abs(r.quantity) : 0);
+                                  }, 0);
+                                  const costOfGoods = outRecords.reduce((sum, r) => {
+                                    const product = products.find((p) => p.id === r.productId);
+                                    return sum + (product ? (product.costPrice || 0) * Math.abs(r.quantity) : 0);
+                                  }, 0);
+                                  return (salesRevenue - costOfGoods).toFixed(2);
+                                })()}
                               </p>
                             </div>
                             <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center text-white">
-                              <TrendingUp size={24} />
+                              <DollarSign size={24} />
                             </div>
                           </div>
-                          <p className="text-xs text-green-500 mt-2">{inRecords.length} 笔采购记录</p>
+                          <p className="text-xs text-green-500 mt-2">销售额 - 采购成本</p>
                         </div>
                         <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-5">
                           <div className="flex items-center justify-between">
@@ -1869,19 +2055,14 @@ const App = () => {
                           </div>
                           <div className="space-y-3">
                             {(() => {
-                              // 计算每个客户的欠款金额（未付款的销售记录总金额）
-                              const customerDebt = {};
-                              outRecords.forEach((r) => {
-                                if (r.paymentStatus !== "paid" && r.recipientName) {
-                                  const amount = r.totalAmount || 0;
-                                  customerDebt[r.recipientName] = (customerDebt[r.recipientName] || 0) + amount;
-                                }
-                              });
-                              return Object.entries(customerDebt)
-                                .sort((a, b) => b[1] - a[1])
-                                .slice(0, 8)
-                                .map(([name, debt], i) => {
-                                  const maxDebt = Math.max(...Object.values(customerDebt), 1);
+                              const customerDebtList = customers
+                                .map((c) => ({ name: c.name, debt: Number(c.debt || 0) }))
+                                .filter((c) => c.debt > 0)
+                                .sort((a, b) => b.debt - a.debt)
+                                .slice(0, 8);
+                              const maxDebt = customerDebtList.length > 0 ? Math.max(...customerDebtList.map((c) => c.debt), 1) : 1;
+                              return customerDebtList.length > 0
+                                ? customerDebtList.map(({ name, debt }, i) => {
                                   const pct = (debt / maxDebt) * 100;
                                   const colors = ["bg-red-500", "bg-orange-500", "bg-yellow-500", "bg-amber-500", "bg-lime-500", "bg-green-500", "bg-emerald-500", "bg-teal-500"];
                                   return (
@@ -1901,22 +2082,13 @@ const App = () => {
                                       </div>
                                     </div>
                                   );
-                                });
-                            })()}
-                            {(() => {
-                              const customerDebt = {};
-                              outRecords.forEach((r) => {
-                                if (r.paymentStatus !== "paid" && r.recipientName) {
-                                  const amount = r.totalAmount || 0;
-                                  customerDebt[r.recipientName] = (customerDebt[r.recipientName] || 0) + amount;
-                                }
-                              });
-                              return Object.keys(customerDebt).length === 0 ? (
-                                <div className="text-center py-6 text-gray-400 text-sm">
-                                  <CheckCircle2 size={24} className="mx-auto mb-2 text-green-400" />
-                                  所有客户均已结清欠款
-                                </div>
-                              ) : null;
+                                })
+                                : (
+                                  <div className="text-center py-6 text-gray-400 text-sm">
+                                    <CheckCircle2 size={24} className="mx-auto mb-2 text-green-400" />
+                                    所有客户均已结清欠款
+                                  </div>
+                                );
                             })()}
                           </div>
                         </div>
@@ -2295,32 +2467,87 @@ const App = () => {
                           </div>
 
                           {/* 筛选器 */}
-                          <div className="flex flex-col sm:flex-row gap-3">
-                            <div className="relative w-full sm:w-64">
-                              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <div className="bg-gray-50/80 border border-gray-100 rounded-xl p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Search size={16} className="text-gray-400" />
+                                <span className="text-sm font-medium text-gray-700">筛选条件</span>
+                                {activeFilterCount(inFilter) > 0 && (
+                                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                                    {activeFilterCount(inFilter)} 个条件生效
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => setInFilter({ supplierName: "", docType: "all", productName: "", dateStart: "", dateEnd: "" })}
+                                className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
+                              >
+                                <RefreshCw size={12} /> 重置筛选
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                              <div className="relative">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                  type="text"
+                                  placeholder="供应商名称"
+                                  value={inFilter.supplierName}
+                                  onChange={(e) => setInFilter({ ...inFilter, supplierName: e.target.value })}
+                                  className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                                />
+                              </div>
+                              <div className="relative">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                  type="text"
+                                  placeholder="商品名称"
+                                  value={inFilter.productName}
+                                  onChange={(e) => setInFilter({ ...inFilter, productName: e.target.value })}
+                                  className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                                />
+                              </div>
+                              <select
+                                value={inFilter.docType}
+                                onChange={(e) => setInFilter({ ...inFilter, docType: e.target.value })}
+                                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                              >
+                                <option value="all">全部单据类型</option>
+                                <option value="purchase">采购入库单</option>
+                                <option value="return">采购退货单</option>
+                                <option value="transfer">调拨入库单</option>
+                                <option value="other">其他入库单</option>
+                              </select>
                               <input
-                                type="text"
-                                placeholder="搜索供应商名称"
-                                value={supplierSearchText || ""}
-                                onChange={(e) => setSupplierSearchText(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                type="date"
+                                value={inFilter.dateStart}
+                                onChange={(e) => setInFilter({ ...inFilter, dateStart: e.target.value })}
+                                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                                title="开始日期"
+                              />
+                              <input
+                                type="date"
+                                value={inFilter.dateEnd}
+                                onChange={(e) => setInFilter({ ...inFilter, dateEnd: e.target.value })}
+                                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                                title="结束日期"
                               />
                             </div>
-                            <select
-                              value={inForm.docType || "all"}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setInForm({ ...inForm, docType: val });
-                              }}
-                              className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                            >
-                              <option value="all">全部单据类型</option>
-                              <option value="purchase">采购入库单</option>
-                              <option value="return">采购退货单</option>
-                              <option value="transfer">调拨入库单</option>
-                              <option value="other">其他入库单</option>
-                            </select>
                           </div>
+
+                          {/* 筛选结果统计 */}
+                          {(() => {
+                            const filtered = getFilteredInRecords();
+                            return (
+                              <div className="flex items-center justify-between text-xs text-gray-500">
+                                <span>
+                                  共 <span className="font-semibold text-gray-700">{filtered.length}</span> 条记录
+                                  {filtered.length !== inRecords.length && (
+                                    <span className="ml-1">（已从 {inRecords.length} 条中筛选）</span>
+                                  )}
+                                </span>
+                              </div>
+                            );
+                          })()}
 
                           <div className="overflow-x-auto">
                             <table className="w-full text-sm">
@@ -2332,73 +2559,75 @@ const App = () => {
                                   <th className="px-4 py-3 text-left font-medium">数量</th>
                                   <th className="px-4 py-3 text-left font-medium">供应商</th>
                                   <th className="px-4 py-3 text-left font-medium">备注</th>
-                                  <th className="px-4 py-3 text-left font-medium rounded-tr-lg">时间</th>
+                                  <th className="px-4 py-3 text-left font-medium">时间</th>
+                                  <th className="px-4 py-3 text-left font-medium rounded-tr-lg">操作</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {inRecords
-                                  .filter((r) => {
-                                    const matchSupplier = !supplierSearchText ||
-                                      (r.supplierName && r.supplierName.includes(supplierSearchText));
-                                    const matchDocType = inForm.docType === "all" ||
-                                      !inForm.docType ||
-                                      (r.docType || "purchase") === inForm.docType;
-                                    return matchSupplier && matchDocType;
-                                  })
-                                  .map((r) => {
-                                    // 从 products 数组中查找商品名称
-                                    const product = products.find((p) => p.id === r.productId);
-                                    const productName = product?.name || r.productName || "未知商品";
-                                    const docTypeMap = {
-                                      purchase: { label: "采购入库", color: "bg-green-100 text-green-700" },
-                                      return: { label: "采购退货", color: "bg-red-100 text-red-700" },
-                                      transfer: { label: "调拨入库", color: "bg-blue-100 text-blue-700" },
-                                      other: { label: "其他入库", color: "bg-gray-100 text-gray-700" },
-                                    };
-                                    const docTypeInfo = docTypeMap[r.docType || "purchase"];
-                                    return (
-                                      <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                        <td className="px-4 py-3">
-                                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${docTypeInfo.color}`}>
-                                            {docTypeInfo.label}
-                                          </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-500">{r.productId}</td>
-                                        <td className="px-4 py-3 font-medium">
-                                          <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
-                                              <Package size={12} className="text-blue-600" />
-                                            </div>
-                                            {productName}
+                                {getFilteredInRecords().map((r) => {
+                                  const product = products.find((p) => p.id === r.productId);
+                                  const productName = product?.name || r.productName || "未知商品";
+                                  const docTypeMap = {
+                                    purchase: { label: "采购入库", color: "bg-green-100 text-green-700" },
+                                    return: { label: "采购退货", color: "bg-red-100 text-red-700" },
+                                    transfer: { label: "调拨入库", color: "bg-blue-100 text-blue-700" },
+                                    other: { label: "其他入库", color: "bg-gray-100 text-gray-700" },
+                                  };
+                                  const docTypeInfo = docTypeMap[r.docType || "purchase"];
+                                  return (
+                                    <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                      <td className="px-4 py-3">
+                                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${docTypeInfo.color}`}>
+                                          {docTypeInfo.label}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-3 text-gray-500">{r.productId}</td>
+                                      <td className="px-4 py-3 font-medium">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
+                                            <Package size={12} className="text-blue-600" />
                                           </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-green-600 font-medium">+{r.quantity}</td>
-                                        <td className="px-4 py-3">
-                                          {r.supplierName ? (
-                                            <div className="flex items-center gap-1.5">
-                                              <User size={14} className="text-blue-500" />
-                                              <span className="text-gray-700">{r.supplierName}</span>
-                                            </div>
-                                          ) : (
-                                            <span className="text-gray-400">-</span>
-                                          )}
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-500">{r.remark || "-"}</td>
-                                        <td className="px-4 py-3 text-gray-400">{r.time}</td>
-                                      </tr>
-                                    );
-                                  })}
-                                {inRecords.filter((r) => {
-                                  const matchSupplier = !supplierSearchText ||
-                                    (r.supplierName && r.supplierName.includes(supplierSearchText));
-                                  const matchDocType = inForm.docType === "all" ||
-                                    !inForm.docType ||
-                                    (r.docType || "purchase") === inForm.docType;
-                                  return matchSupplier && matchDocType;
-                                }).length === 0 && (
+                                          {productName}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-3 text-green-600 font-medium">+{r.quantity}</td>
+                                      <td className="px-4 py-3">
+                                        {r.supplierName ? (
+                                          <div className="flex items-center gap-1.5">
+                                            <User size={14} className="text-blue-500" />
+                                            <span className="text-gray-700">{r.supplierName}</span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-gray-400">-</span>
+                                        )}
+                                      </td>
+                                      <td className="px-4 py-3 text-gray-500">{r.remark || "-"}</td>
+                                      <td className="px-4 py-3 text-gray-400">{r.time}</td>
+                                      <td className="px-4 py-3">
+                                        <div className="flex items-center gap-1">
+                                          <button
+                                            onClick={() => openEditInModal(r)}
+                                            className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                                            title="修改"
+                                          >
+                                            <Edit3 size={14} />
+                                          </button>
+                                          <button
+                                            onClick={() => deleteInRecord(r.id)}
+                                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="删除"
+                                          >
+                                            <Trash2 size={14} />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                                {getFilteredInRecords().length === 0 && (
                                   <tr>
-                                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                                      暂无采购记录
+                                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                                      {inRecords.length > 0 ? "没有匹配的采购记录，请调整筛选条件" : "暂无采购记录"}
                                     </td>
                                   </tr>
                                 )}
@@ -2528,30 +2757,85 @@ const App = () => {
                       </div>
 
                       {/* 筛选器 */}
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="relative w-full sm:w-64">
-                          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <div className="bg-gray-50/80 border border-gray-100 rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Search size={16} className="text-gray-400" />
+                            <span className="text-sm font-medium text-gray-700">筛选条件</span>
+                            {activeOutFilterCount(outFilter) > 0 && (
+                              <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                                {activeOutFilterCount(outFilter)} 个条件生效
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => setOutFilter({ customerName: "", paymentStatus: "all", productName: "", dateStart: "", dateEnd: "" })}
+                            className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
+                          >
+                            <RefreshCw size={12} /> 重置筛选
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                          <div className="relative">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="客户名称"
+                              value={outFilter.customerName}
+                              onChange={(e) => setOutFilter({ ...outFilter, customerName: e.target.value })}
+                              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                            />
+                          </div>
+                          <div className="relative">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="商品名称"
+                              value={outFilter.productName}
+                              onChange={(e) => setOutFilter({ ...outFilter, productName: e.target.value })}
+                              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                            />
+                          </div>
+                          <select
+                            value={outFilter.paymentStatus}
+                            onChange={(e) => setOutFilter({ ...outFilter, paymentStatus: e.target.value })}
+                            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                          >
+                            <option value="all">全部付款状态</option>
+                            <option value="paid">已付款</option>
+                            <option value="unpaid">未付款</option>
+                          </select>
                           <input
-                            type="text"
-                            placeholder="搜索客户名称"
-                            value={recipientSearchText}
-                            onChange={(e) => setRecipientSearchText(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            type="date"
+                            value={outFilter.dateStart}
+                            onChange={(e) => setOutFilter({ ...outFilter, dateStart: e.target.value })}
+                            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                            title="开始日期"
+                          />
+                          <input
+                            type="date"
+                            value={outFilter.dateEnd}
+                            onChange={(e) => setOutFilter({ ...outFilter, dateEnd: e.target.value })}
+                            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                            title="结束日期"
                           />
                         </div>
-                        <select
-                          value={outForm.paymentStatus || "all"}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setOutForm({ ...outForm, paymentStatus: val });
-                          }}
-                          className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                        >
-                          <option value="all">全部付款状态</option>
-                          <option value="paid">已付款</option>
-                          <option value="unpaid">未付款</option>
-                        </select>
                       </div>
+
+                      {/* 筛选结果统计 */}
+                      {(() => {
+                        const filtered = getFilteredOutRecords();
+                        return (
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>
+                              共 <span className="font-semibold text-gray-700">{filtered.length}</span> 条记录
+                              {filtered.length !== outRecords.length && (
+                                <span className="ml-1">（已从 {outRecords.length} 条中筛选）</span>
+                              )}
+                            </span>
+                          </div>
+                        );
+                      })()}
 
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
@@ -2569,33 +2853,23 @@ const App = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {outRecords
-                              .filter((r) => {
-                                const matchRecipient = !recipientSearchText ||
-                                  (r.recipientName && r.recipientName.includes(recipientSearchText));
-                                const matchPayment = outForm.paymentStatus === "all" ||
-                                  !outForm.paymentStatus ||
-                                  (r.paymentStatus || "unpaid") === outForm.paymentStatus;
-                                return matchRecipient && matchPayment;
-                              })
-                              .map((r) => {
-                                // 从 products 数组中查找商品名称
-                                const product = products.find((p) => p.id === r.productId);
-                                const productName = product?.name || r.productName || "未知商品";
-                                return (
-                                  <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                    <td className="px-4 py-3 text-gray-500">{r.productId}</td>
-                                    <td className="px-4 py-3 font-medium">
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
-                                          <Package size={12} className="text-blue-600" />
-                                        </div>
-                                        {productName}
+                            {getFilteredOutRecords().map((r) => {
+                              const product = products.find((p) => p.id === r.productId);
+                              const productName = product?.name || r.productName || "未知商品";
+                              return (
+                                <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                  <td className="px-4 py-3 text-gray-500">{r.productId}</td>
+                                  <td className="px-4 py-3 font-medium">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
+                                        <Package size={12} className="text-blue-600" />
                                       </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-red-500 font-medium">-{Math.abs(r.quantity)}</td>
-                                    <td className="px-4 py-3 text-gray-600">¥{(r.unitPrice || 0).toFixed(2)}</td>
-                                    <td className="px-4 py-3 text-orange-600 font-medium">¥{(r.totalAmount || 0).toFixed(2)}</td>
+                                      {productName}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-red-500 font-medium">-{Math.abs(r.quantity)}</td>
+                                  <td className="px-4 py-3 text-gray-600">¥{(r.unitPrice || 0).toFixed(2)}</td>
+                                  <td className="px-4 py-3 text-orange-600 font-medium">¥{(r.totalAmount || 0).toFixed(2)}</td>
                                   <td className="px-4 py-3">
                                     {r.recipientName ? (
                                       <div className="flex items-center gap-1.5">
@@ -2625,18 +2899,12 @@ const App = () => {
                                   <td className="px-4 py-3 text-gray-500">{r.remark || "-"}</td>
                                   <td className="px-4 py-3 text-gray-400">{r.time}</td>
                                 </tr>
-                              )})}
-                            {outRecords.filter((r) => {
-                              const matchRecipient = !recipientSearchText ||
-                                (r.recipientName && r.recipientName.includes(recipientSearchText));
-                              const matchPayment = outForm.paymentStatus === "all" ||
-                                !outForm.paymentStatus ||
-                                (r.paymentStatus || "unpaid") === outForm.paymentStatus;
-                              return matchRecipient && matchPayment;
-                            }).length === 0 && (
+                              );
+                            })}
+                            {getFilteredOutRecords().length === 0 && (
                               <tr>
-                                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                                  暂无销售记录
+                                <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                                  {outRecords.length > 0 ? "没有匹配的销售记录，请调整筛选条件" : "暂无销售记录"}
                                 </td>
                               </tr>
                             )}
@@ -2930,7 +3198,7 @@ const App = () => {
                       .map((payment) => (
                         <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="px-3 py-2 text-gray-600 text-xs">
-                            {new Date(payment.businessTime).toLocaleString()}
+                            {formatTime(payment.businessTime)}
                           </td>
                           <td className="px-3 py-2 text-right font-medium">¥{payment.amount.toFixed(2)}</td>
                           <td className="px-3 py-2 text-right text-orange-600">
@@ -3031,7 +3299,7 @@ const App = () => {
                               {record.paymentStatus === "paid" ? "已付款" : "未付款"}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-gray-500 text-xs">{record.time || record.createTime}</td>
+                          <td className="px-3 py-2 text-gray-500 text-xs">{formatTime(record.time || record.createTime)}</td>
                         </tr>
                       );
                     })}
@@ -3121,7 +3389,7 @@ const App = () => {
                       {selectedCustomerPayments.map((payment) => (
                         <tr key={payment.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-gray-600">
-                            {new Date(payment.businessTime).toLocaleString()}
+                            {formatTime(payment.businessTime)}
                           </td>
                           <td className="px-4 py-3 text-right font-medium text-gray-800">
                             ¥{payment.amount.toFixed(2)}
@@ -3483,6 +3751,81 @@ const App = () => {
         </div>
       )}
 
+      {/* 编辑采购记录弹窗 */}
+      {showEditInModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative space-y-4">
+            <button
+              onClick={() => setShowEditInModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X size={20} />
+            </button>
+            <h4 className="text-lg font-semibold text-gray-900">编辑采购记录</h4>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">采购数量</label>
+              <input
+                type="number"
+                min="1"
+                value={editInForm.quantity}
+                onChange={(e) => setEditInForm({ ...editInForm, quantity: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">单据类型</label>
+              <select
+                value={editInForm.docType}
+                onChange={(e) => setEditInForm({ ...editInForm, docType: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <option value="purchase">采购入库单</option>
+                <option value="return">采购退货单</option>
+                <option value="transfer">调拨入库单</option>
+                <option value="other">其他入库单</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">供应商</label>
+              <select
+                value={editInForm.supplierName}
+                onChange={(e) => setEditInForm({ ...editInForm, supplierName: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <option value="">请选择供应商</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.name}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
+              <textarea
+                value={editInForm.remark}
+                onChange={(e) => setEditInForm({ ...editInForm, remark: e.target.value })}
+                placeholder="可选备注"
+                rows={3}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowEditInModal(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                取消
+              </button>
+              <button
+                onClick={saveEditInRecord}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 flex items-center gap-2"
+              >
+                <Edit3 size={16} />保存修改
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 采购弹窗 */}
       {showInModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -3796,7 +4139,7 @@ const App = () => {
                           <td className="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               <Clock size={12} className="text-gray-400" />
-                              {new Date(log.createTime).toLocaleString()}
+                              {formatTime(log.createTime)}
                             </div>
                           </td>
                           <td className="px-4 py-3">

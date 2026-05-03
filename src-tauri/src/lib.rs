@@ -75,6 +75,7 @@ fn init_db_tables(conn: &Connection) -> Result<()> {
             total_amount REAL NOT NULL DEFAULT 0,
             remark TEXT,
             recipient_name TEXT DEFAULT '',
+            payment_status TEXT DEFAULT 'unpaid',
             create_time TEXT NOT NULL
         )",
         [],
@@ -105,6 +106,7 @@ fn init_db_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE out_records ADD COLUMN recipient_name TEXT DEFAULT ''",
         "ALTER TABLE out_records ADD COLUMN unit_price REAL NOT NULL DEFAULT 0",
         "ALTER TABLE out_records ADD COLUMN total_amount REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE out_records ADD COLUMN payment_status TEXT DEFAULT 'unpaid'",
         "ALTER TABLE stock_flow ADD COLUMN destination TEXT DEFAULT ''",
         "ALTER TABLE products ADD COLUMN cost_price REAL NOT NULL DEFAULT 0",
     ];
@@ -172,6 +174,8 @@ struct Record {
     supplier_name: String,
     #[serde(rename = "docType", default)]
     doc_type: String,
+    #[serde(rename = "paymentStatus", default)]
+    payment_status: String,
     #[serde(rename = "createTime")]
     #[serde(default)]
     create_time: Option<String>,
@@ -409,6 +413,7 @@ fn get_records(r#type: String, state: State<'_, AppState>) -> Result<Vec<Record>
                     supplier_name: row.get(4)?,
                     doc_type: row.get(5)?,
                     recipient_name: String::new(),
+                    payment_status: String::new(),
                     create_time: row.get(6)?,
                 })
             })
@@ -420,7 +425,7 @@ fn get_records(r#type: String, state: State<'_, AppState>) -> Result<Vec<Record>
         Ok(result)
     } else {
         let mut stmt = conn
-            .prepare("SELECT id, product_id, quantity, unit_price, total_amount, remark, recipient_name, create_time FROM out_records")
+            .prepare("SELECT id, product_id, quantity, unit_price, total_amount, remark, recipient_name, payment_status, create_time FROM out_records")
             .map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map([], |row| {
@@ -434,7 +439,8 @@ fn get_records(r#type: String, state: State<'_, AppState>) -> Result<Vec<Record>
                     recipient_name: row.get(6)?,
                     supplier_name: String::new(),
                     doc_type: String::new(),
-                    create_time: row.get(7)?,
+                    payment_status: row.get(7).unwrap_or_else(|_| "unpaid".to_string()),
+                    create_time: row.get(8)?,
                 })
             })
             .map_err(|e| e.to_string())?;
@@ -474,8 +480,8 @@ fn add_record(record: Record, state: State<'_, AppState>) -> Result<Record, Stri
         .map_err(|e| e.to_string())?;
     } else {
         conn.execute(
-            "INSERT INTO out_records (product_id, quantity, unit_price, total_amount, remark, recipient_name, create_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            rusqlite::params![record.product_id, quantity, record.unit_price, record.total_amount, record.remark, record.recipient_name, create_time],
+            "INSERT INTO out_records (product_id, quantity, unit_price, total_amount, remark, recipient_name, payment_status, create_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            rusqlite::params![record.product_id, quantity, record.unit_price, record.total_amount, record.remark, record.recipient_name, record.payment_status, create_time],
         )
         .map_err(|e| e.to_string())?;
     }
@@ -643,6 +649,84 @@ fn maximize_window(window: tauri::Window) {
     }
 }
 
+#[tauri::command]
+fn update_payment_status(id: i32, payment_status: String, state: State<'_, AppState>) -> Result<bool, String> {
+    let conn = get_conn(&state)?;
+    conn.execute(
+        "UPDATE out_records SET payment_status = ? WHERE id = ?",
+        rusqlite::params![payment_status, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
+fn update_in_record(id: i32, product_id: i32, quantity: i32, remark: String, supplier_name: String, doc_type: String, state: State<'_, AppState>) -> Result<bool, String> {
+    let conn = get_conn(&state)?;
+
+    let old_quantity: i32 = conn
+        .query_row("SELECT quantity FROM in_records WHERE id = ?", [id], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+
+    let diff = quantity - old_quantity;
+    if diff != 0 {
+        conn.execute(
+            "UPDATE products SET stock = stock + ? WHERE id = ?",
+            rusqlite::params![diff, product_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    conn.execute(
+        "UPDATE in_records SET product_id = ?, quantity = ?, remark = ?, supplier_name = ?, doc_type = ? WHERE id = ?",
+        rusqlite::params![product_id, quantity, remark, supplier_name, doc_type, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
+fn delete_in_record(id: i32, state: State<'_, AppState>) -> Result<bool, String> {
+    let conn = get_conn(&state)?;
+
+    let record: (i32, i32) = conn
+        .query_row("SELECT product_id, quantity FROM in_records WHERE id = ?", [id], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(|e| e.to_string())?;
+
+    let (product_id, quantity) = record;
+
+    conn.execute(
+        "UPDATE products SET stock = stock - ? WHERE id = ?",
+        rusqlite::params![quantity, product_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute("DELETE FROM in_records WHERE id = ?", [id])
+        .map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
+fn delete_out_record(id: i32, state: State<'_, AppState>) -> Result<bool, String> {
+    let conn = get_conn(&state)?;
+
+    let record: (i32, i32) = conn
+        .query_row("SELECT product_id, quantity FROM out_records WHERE id = ?", [id], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(|e| e.to_string())?;
+
+    let (product_id, quantity) = record;
+
+    conn.execute(
+        "UPDATE products SET stock = stock + ? WHERE id = ?",
+        rusqlite::params![quantity, product_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute("DELETE FROM out_records WHERE id = ?", [id])
+        .map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -690,6 +774,10 @@ pub fn run() {
             add_record,
             add_stock_flow,
             get_stock_flows,
+            update_payment_status,
+            update_in_record,
+            delete_in_record,
+            delete_out_record,
             close_window,
             minimize_window,
             maximize_window
