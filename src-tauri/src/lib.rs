@@ -67,6 +67,23 @@ fn init_db_tables(conn: &Connection) -> Result<()> {
     )?;
 
     conn.execute(
+        "CREATE TABLE IF NOT EXISTS returns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            out_record_id INTEGER NOT NULL,
+            product_id INTEGER NOT NULL,
+            quantity INTEGER NOT NULL,
+            unit_price REAL NOT NULL DEFAULT 0,
+            refund_amount REAL NOT NULL DEFAULT 0,
+            reason TEXT DEFAULT '',
+            status TEXT DEFAULT 'pending',
+            recipient_name TEXT DEFAULT '',
+            remark TEXT DEFAULT '',
+            create_time TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    conn.execute(
         "CREATE TABLE IF NOT EXISTS out_records (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             product_id INTEGER NOT NULL,
@@ -180,6 +197,30 @@ struct Record {
     #[serde(rename = "createTime")]
     #[serde(default)]
     create_time: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct ReturnRecord {
+    id: i32,
+    #[serde(rename = "outRecordId")]
+    out_record_id: i32,
+    #[serde(rename = "productId")]
+    product_id: i32,
+    quantity: i32,
+    #[serde(rename = "unitPrice", default)]
+    unit_price: f64,
+    #[serde(rename = "refundAmount", default)]
+    refund_amount: f64,
+    #[serde(default)]
+    reason: String,
+    #[serde(default)]
+    status: String,
+    #[serde(rename = "recipientName", default)]
+    recipient_name: String,
+    #[serde(default)]
+    remark: String,
+    #[serde(rename = "createTime")]
+    create_time: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -687,6 +728,128 @@ fn update_in_record(id: i32, product_id: i32, quantity: i32, remark: String, sup
 }
 
 #[tauri::command]
+fn get_returns(state: State<'_, AppState>) -> Result<Vec<ReturnRecord>, String> {
+    let conn = get_conn(&state)?;
+    let mut stmt = conn
+        .prepare("SELECT id, out_record_id, product_id, quantity, unit_price, refund_amount, reason, status, recipient_name, remark, create_time FROM returns ORDER BY id DESC")
+        .map_err(|e| e.to_string())?;
+
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(ReturnRecord {
+                id: row.get(0)?,
+                out_record_id: row.get(1)?,
+                product_id: row.get(2)?,
+                quantity: row.get(3)?,
+                unit_price: row.get(4).unwrap_or(0.0),
+                refund_amount: row.get(5).unwrap_or(0.0),
+                reason: row.get(6).unwrap_or_default(),
+                status: row.get(7).unwrap_or_else(|_| "pending".to_string()),
+                recipient_name: row.get(8).unwrap_or_default(),
+                remark: row.get(9).unwrap_or_default(),
+                create_time: row.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut records = Vec::new();
+    for row in rows {
+        records.push(row.map_err(|e| e.to_string())?);
+    }
+    Ok(records)
+}
+
+#[tauri::command]
+fn add_return(out_record_id: i32, product_id: i32, quantity: i32, unit_price: f64, refund_amount: f64, reason: String, recipient_name: String, remark: String, state: State<'_, AppState>) -> Result<ReturnRecord, String> {
+    let conn = get_conn(&state)?;
+    let create_time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+
+    conn.execute(
+        "INSERT INTO returns (out_record_id, product_id, quantity, unit_price, refund_amount, reason, status, recipient_name, remark, create_time) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)",
+        rusqlite::params![out_record_id, product_id, quantity, unit_price, refund_amount, reason, recipient_name, remark, create_time],
+    )
+    .map_err(|e| e.to_string())?;
+
+    let id = conn.last_insert_rowid();
+    Ok(ReturnRecord {
+        id: id as i32,
+        out_record_id,
+        product_id,
+        quantity,
+        unit_price,
+        refund_amount,
+        reason,
+        status: "pending".to_string(),
+        recipient_name,
+        remark,
+        create_time,
+    })
+}
+
+#[tauri::command]
+fn update_return_status(id: i32, status: String, state: State<'_, AppState>) -> Result<bool, String> {
+    let conn = get_conn(&state)?;
+
+    if status == "approved" {
+        let record: (i32, i32) = conn
+            .query_row("SELECT product_id, quantity FROM returns WHERE id = ?", [id], |row| Ok((row.get(0)?, row.get(1)?)))
+            .map_err(|e| e.to_string())?;
+        let (product_id, quantity) = record;
+        conn.execute(
+            "UPDATE products SET stock = stock + ? WHERE id = ?",
+            rusqlite::params![quantity, product_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    if status == "rejected" {
+        let old_status: String = conn
+            .query_row("SELECT status FROM returns WHERE id = ?", [id], |row| row.get(0))
+            .map_err(|e| e.to_string())?;
+        if old_status == "approved" {
+            let record: (i32, i32) = conn
+                .query_row("SELECT product_id, quantity FROM returns WHERE id = ?", [id], |row| Ok((row.get(0)?, row.get(1)?)))
+                .map_err(|e| e.to_string())?;
+            let (product_id, quantity) = record;
+            conn.execute(
+                "UPDATE products SET stock = stock - ? WHERE id = ?",
+                rusqlite::params![quantity, product_id],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+
+    conn.execute(
+        "UPDATE returns SET status = ? WHERE id = ?",
+        rusqlite::params![status, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
+fn delete_return(id: i32, state: State<'_, AppState>) -> Result<bool, String> {
+    let conn = get_conn(&state)?;
+
+    let record: (String, i32, i32) = conn
+        .query_row("SELECT status, product_id, quantity FROM returns WHERE id = ?", [id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+        .map_err(|e| e.to_string())?;
+
+    let (status, product_id, quantity) = record;
+    if status == "approved" {
+        conn.execute(
+            "UPDATE products SET stock = stock - ? WHERE id = ?",
+            rusqlite::params![quantity, product_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    conn.execute("DELETE FROM returns WHERE id = ?", [id])
+        .map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
 fn delete_in_record(id: i32, state: State<'_, AppState>) -> Result<bool, String> {
     let conn = get_conn(&state)?;
 
@@ -779,6 +942,10 @@ pub fn run() {
             update_in_record,
             delete_in_record,
             delete_out_record,
+            get_returns,
+            add_return,
+            update_return_status,
+            delete_return,
             close_window,
             minimize_window,
             maximize_window

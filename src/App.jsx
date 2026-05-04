@@ -21,7 +21,6 @@ import {
   User,
   CheckCircle2,
   XCircle,
-
   AlertTriangle,
   Download,
   SortAsc,
@@ -33,6 +32,7 @@ import {
   Filter,
   Calendar,
   DollarSign,
+  FileText,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -59,7 +59,9 @@ const api = {
     try {
       return await invoke("add_product", { product });
     } catch (_e) {
-      const products = JSON.parse(localStorage.getItem("inventory_products") || "[]");
+      const products = JSON.parse(
+        localStorage.getItem("inventory_products") || "[]",
+      );
       product.id = Date.now();
       products.push(product);
       localStorage.setItem("inventory_products", JSON.stringify(products));
@@ -70,8 +72,12 @@ const api = {
     try {
       return await invoke("update_product", { id, product });
     } catch (_e) {
-      const products = JSON.parse(localStorage.getItem("inventory_products") || "[]");
-      const updated = products.map(p => p.id === id ? { ...product, id } : p);
+      const products = JSON.parse(
+        localStorage.getItem("inventory_products") || "[]",
+      );
+      const updated = products.map((p) =>
+        p.id === id ? { ...product, id } : p,
+      );
       localStorage.setItem("inventory_products", JSON.stringify(updated));
       return { ...product, id };
     }
@@ -80,8 +86,10 @@ const api = {
     try {
       return await invoke("delete_product", { id });
     } catch (_e) {
-      const products = JSON.parse(localStorage.getItem("inventory_products") || "[]");
-      const updated = products.filter(p => p.id !== id);
+      const products = JSON.parse(
+        localStorage.getItem("inventory_products") || "[]",
+      );
+      const updated = products.filter((p) => p.id !== id);
       localStorage.setItem("inventory_products", JSON.stringify(updated));
       return true;
     }
@@ -99,7 +107,9 @@ const api = {
     try {
       return await invoke("add_brand", { brand: name });
     } catch (_e) {
-      const brands = JSON.parse(localStorage.getItem("inventory_brands") || "[]");
+      const brands = JSON.parse(
+        localStorage.getItem("inventory_brands") || "[]",
+      );
       const newBrand = { id: Date.now(), name };
       brands.push(newBrand);
       localStorage.setItem("inventory_brands", JSON.stringify(brands));
@@ -110,8 +120,10 @@ const api = {
     try {
       return await invoke("delete_brand", { id });
     } catch (_e) {
-      const brands = JSON.parse(localStorage.getItem("inventory_brands") || "[]");
-      const updated = brands.filter(b => b.id !== id);
+      const brands = JSON.parse(
+        localStorage.getItem("inventory_brands") || "[]",
+      );
+      const updated = brands.filter((b) => b.id !== id);
       localStorage.setItem("inventory_brands", JSON.stringify(updated));
       return true;
     }
@@ -129,7 +141,9 @@ const api = {
     try {
       return await invoke("add_category", { category: name });
     } catch (_e) {
-      const categories = JSON.parse(localStorage.getItem("inventory_categories") || "[]");
+      const categories = JSON.parse(
+        localStorage.getItem("inventory_categories") || "[]",
+      );
       const newCategory = { id: Date.now(), name };
       categories.push(newCategory);
       localStorage.setItem("inventory_categories", JSON.stringify(categories));
@@ -140,13 +154,15 @@ const api = {
     try {
       return await invoke("delete_category", { id });
     } catch (_e) {
-      const categories = JSON.parse(localStorage.getItem("inventory_categories") || "[]");
-      const updated = categories.filter(c => c.id !== id);
+      const categories = JSON.parse(
+        localStorage.getItem("inventory_categories") || "[]",
+      );
+      const updated = categories.filter((c) => c.id !== id);
       localStorage.setItem("inventory_categories", JSON.stringify(updated));
       return true;
     }
   },
-  
+
   // 单位管理
   getUnits: async () => {
     try {
@@ -171,7 +187,7 @@ const api = {
       return await invoke("delete_unit", { id });
     } catch (_e) {
       const units = JSON.parse(localStorage.getItem("inventory_units") || "[]");
-      const updated = units.filter(u => u.id !== id);
+      const updated = units.filter((u) => u.id !== id);
       localStorage.setItem("inventory_units", JSON.stringify(updated));
       return true;
     }
@@ -182,7 +198,9 @@ const api = {
     try {
       return await invoke("get_records", { type });
     } catch (_e) {
-      return JSON.parse(localStorage.getItem(`inventory_records_${type}`) || "[]");
+      return JSON.parse(
+        localStorage.getItem(`inventory_records_${type}`) || "[]",
+      );
     }
   },
   addRecord: async (record) => {
@@ -190,19 +208,40 @@ const api = {
       return await invoke("add_record", { record });
     } catch (_e) {
       const type = record.quantity > 0 ? "in" : "out";
-      const records = JSON.parse(localStorage.getItem(`inventory_records_${type}`) || "[]");
+      const records = JSON.parse(
+        localStorage.getItem(`inventory_records_${type}`) || "[]",
+      );
       record.id = Date.now();
       record.createTime = new Date().toISOString();
       records.push(record);
-      localStorage.setItem(`inventory_records_${type}`, JSON.stringify(records));
+      localStorage.setItem(
+        `inventory_records_${type}`,
+        JSON.stringify(records),
+      );
       return record;
     }
   },
-  updateInRecord: async (id, productId, quantity, remark, supplierName, docType) => {
+  updateInRecord: async (
+    id,
+    productId,
+    quantity,
+    remark,
+    supplierName,
+    docType,
+  ) => {
     try {
-      return await invoke("update_in_record", { id, productId, quantity, remark, supplierName, docType });
+      return await invoke("update_in_record", {
+        id,
+        productId,
+        quantity,
+        remark,
+        supplierName,
+        docType,
+      });
     } catch (_e) {
-      const records = JSON.parse(localStorage.getItem("inventory_records_in") || "[]");
+      const records = JSON.parse(
+        localStorage.getItem("inventory_records_in") || "[]",
+      );
       const updated = records.map((r) => {
         if (r.id === id) {
           return { ...r, productId, quantity, remark, supplierName, docType };
@@ -217,7 +256,9 @@ const api = {
     try {
       return await invoke("delete_in_record", { id });
     } catch (_e) {
-      const records = JSON.parse(localStorage.getItem("inventory_records_in") || "[]");
+      const records = JSON.parse(
+        localStorage.getItem("inventory_records_in") || "[]",
+      );
       const filtered = records.filter((r) => r.id !== id);
       localStorage.setItem("inventory_records_in", JSON.stringify(filtered));
       return true;
@@ -227,7 +268,9 @@ const api = {
     try {
       return await invoke("delete_out_record", { id });
     } catch (_e) {
-      const records = JSON.parse(localStorage.getItem("inventory_records_out") || "[]");
+      const records = JSON.parse(
+        localStorage.getItem("inventory_records_out") || "[]",
+      );
       const filtered = records.filter((r) => r.id !== id);
       localStorage.setItem("inventory_records_out", JSON.stringify(filtered));
       return true;
@@ -237,6 +280,56 @@ const api = {
     try {
       return await invoke("update_payment_status", { id, paymentStatus });
     } catch (_e) {
+      return true;
+    }
+  },
+  getReturns: async () => {
+    try {
+      return await invoke("get_returns");
+    } catch (_e) {
+      return JSON.parse(localStorage.getItem("inventory_returns") || "[]");
+    }
+  },
+  addReturn: async (outRecordId, productId, quantity, unitPrice, refundAmount, reason, recipientName, remark) => {
+    try {
+      return await invoke("add_return", { outRecordId, productId, quantity, unitPrice, refundAmount, reason, recipientName, remark });
+    } catch (_e) {
+      const returns = JSON.parse(localStorage.getItem("inventory_returns") || "[]");
+      const record = {
+        id: Date.now(),
+        outRecordId,
+        productId,
+        quantity,
+        unitPrice,
+        refundAmount,
+        reason,
+        recipientName,
+        remark,
+        status: "pending",
+        createTime: new Date().toISOString(),
+      };
+      returns.push(record);
+      localStorage.setItem("inventory_returns", JSON.stringify(returns));
+      return record;
+    }
+  },
+  updateReturnStatus: async (id, status) => {
+    try {
+      return await invoke("update_return_status", { id, status });
+    } catch (_e) {
+      const returns = JSON.parse(localStorage.getItem("inventory_returns") || "[]");
+      const updated = returns.map((r) => r.id === id ? { ...r, status } : r);
+      localStorage.setItem("inventory_returns", JSON.stringify(updated));
+      return true;
+    }
+  },
+  deleteReturn: async (id) => {
+    try {
+      return await invoke("delete_return", { id });
+    } catch (_e) {
+      const returns = JSON.parse(localStorage.getItem("inventory_returns") || "[]");
+      const filtered = returns.filter((r) => r.id !== id);
+      localStorage.setItem("inventory_returns", JSON.stringify(filtered));
       return true;
     }
   },
@@ -262,6 +355,24 @@ const App = () => {
   // 出采购记录
   const [inRecords, setInRecords] = useState([]);
   const [outRecords, setOutRecords] = useState([]);
+  const [returnRecords, setReturnRecords] = useState([]);
+  const [outSubTab, setOutSubTab] = useState("records");
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnForm, setReturnForm] = useState({
+    outRecordId: null,
+    productId: "",
+    quantity: "",
+    unitPrice: "",
+    refundAmount: "",
+    reason: "",
+    recipientName: "",
+    remark: "",
+  });
+  const [returnFilter, setReturnFilter] = useState({
+    status: "all",
+    dateStart: "",
+    dateEnd: "",
+  });
 
   // 客户管理数据
   const [customers, setCustomers] = useState([]);
@@ -280,7 +391,14 @@ const App = () => {
   const [customerModalMode, setCustomerModalMode] = useState("add"); // add | edit | view
 
   const customerCategories = ["普通客户", "VIP客户", "批发客户", "零售客户"];
-  const customerSources = ["线下门店", "线上商城", "电话营销", "客户推荐", "社交媒体", "其他"];
+  const customerSources = [
+    "线下门店",
+    "线上商城",
+    "电话营销",
+    "客户推荐",
+    "社交媒体",
+    "其他",
+  ];
 
   // 财务管理模块状态
   const [financeSubTab, setFinanceSubTab] = useState("overview"); // overview | reconciliation | debt
@@ -311,7 +429,9 @@ const App = () => {
   });
   const [paymentRecords, setPaymentRecords] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem("inventory_payment_records") || "[]");
+      return JSON.parse(
+        localStorage.getItem("inventory_payment_records") || "[]",
+      );
     } catch {
       return [];
     }
@@ -332,10 +452,14 @@ const App = () => {
   const [productModalMode, setProductModalMode] = useState("add"); // add | edit
   const [editingProductId, setEditingProductId] = useState(null);
 
-  const syncCustomerDebt = (customerList, outRecordsList, paymentRecordsList) => {
+  const syncCustomerDebt = (
+    customerList,
+    outRecordsList,
+    paymentRecordsList,
+  ) => {
     return customerList.map((customer) => {
       const customerOutRecords = outRecordsList.filter(
-        (r) => r.recipientName === customer.name
+        (r) => r.recipientName === customer.name,
       );
       const totalSalesAmount = customerOutRecords.reduce((sum, r) => {
         if (r.totalAmount) return sum + r.totalAmount;
@@ -350,81 +474,127 @@ const App = () => {
     });
   };
 
-  const _applyCustomerDebtSync = (customerList, outRecordsList, paymentRecordsList) => {
-    const synced = syncCustomerDebt(customerList, outRecordsList, paymentRecordsList);
+  const _applyCustomerDebtSync = (
+    customerList,
+    outRecordsList,
+    paymentRecordsList,
+  ) => {
+    const synced = syncCustomerDebt(
+      customerList,
+      outRecordsList,
+      paymentRecordsList,
+    );
     setCustomers(synced);
     localStorage.setItem("inventory_customers", JSON.stringify(synced));
     return synced;
   };
 
   // 加载财务数据
-  const loadFinanceData = (customerList, outRecordsList, paymentRecordsList) => {
+  const loadFinanceData = (
+    customerList,
+    outRecordsList,
+    paymentRecordsList,
+  ) => {
     setFinanceLoading(true);
 
-    const syncedCustomers = syncCustomerDebt(customerList, outRecordsList, paymentRecordsList);
+    const syncedCustomers = syncCustomerDebt(
+      customerList,
+      outRecordsList,
+      paymentRecordsList,
+    );
 
-    const reconciliation = syncedCustomers.map((customer) => {
-      const customerOutRecords = outRecordsList.filter(
-        (r) => r.recipientName === customer.name
-      );
-      const totalAmount = customerOutRecords.reduce((sum, r) => {
-        if (r.totalAmount) return sum + r.totalAmount;
-        const product = products.find((p) => p.id === r.productId);
-        return sum + (product ? product.price * Math.abs(r.quantity) : 0);
-      }, 0);
+    const reconciliation = syncedCustomers
+      .map((customer) => {
+        const customerOutRecords = outRecordsList.filter(
+          (r) => r.recipientName === customer.name,
+        );
+        const totalAmount = customerOutRecords.reduce((sum, r) => {
+          if (r.totalAmount) return sum + r.totalAmount;
+          const product = products.find((p) => p.id === r.productId);
+          return sum + (product ? product.price * Math.abs(r.quantity) : 0);
+        }, 0);
 
-      const paidAmount = (paymentRecordsList || paymentRecords)
-        .filter((p) => p.customerId === customer.id)
-        .reduce((sum, p) => sum + p.actualAmount, 0);
+        const paidAmount = (paymentRecordsList || paymentRecords)
+          .filter((p) => p.customerId === customer.id)
+          .reduce((sum, p) => sum + p.actualAmount, 0);
 
-      const unpaidAmount = Math.max(0, totalAmount - paidAmount);
-      const lastTransactionDate = customerOutRecords.length > 0
-        ? customerOutRecords[customerOutRecords.length - 1].createTime || customerOutRecords[customerOutRecords.length - 1].time
-        : "-";
+        const unpaidAmount = Math.max(0, totalAmount - paidAmount);
+        const lastTransactionDate =
+          customerOutRecords.length > 0
+            ? customerOutRecords[customerOutRecords.length - 1].createTime ||
+              customerOutRecords[customerOutRecords.length - 1].time
+            : "-";
 
-      const hasOverdue = unpaidAmount > 0 && customerOutRecords.some((r) => {
-        if (!r.createTime && !r.time) return false;
-        const recordDate = new Date(r.createTime || r.time);
-        return (Date.now() - recordDate.getTime()) > 7 * 24 * 60 * 60 * 1000;
-      });
+        const hasOverdue =
+          unpaidAmount > 0 &&
+          customerOutRecords.some((r) => {
+            if (!r.createTime && !r.time) return false;
+            const recordDate = new Date(r.createTime || r.time);
+            return Date.now() - recordDate.getTime() > 7 * 24 * 60 * 60 * 1000;
+          });
 
-      return {
-        id: customer.id,
-        customerName: customer.name,
-        customerPhone: customer.phone,
-        totalAmount: totalAmount,
-        paidAmount: paidAmount,
-        unpaidAmount: unpaidAmount,
-        lastTransactionDate: lastTransactionDate,
-        transactionCount: customerOutRecords.length,
-        status: unpaidAmount > 0 ? (hasOverdue ? "overdue" : "unpaid") : "paid",
-        overdueDays: hasOverdue ? Math.max(1, Math.floor((Date.now() - new Date(customerOutRecords.find((r) => {
-          if (!r.createTime && !r.time) return false;
-          const d = new Date(r.createTime || r.time);
-          return (Date.now() - d.getTime()) > 7 * 24 * 60 * 60 * 1000;
-        })?.createTime || Date.now()).getTime()) / (24 * 60 * 60 * 1000))) : 0,
-        category: customer.category,
-      };
-    }).filter(r => r.transactionCount > 0 || r.unpaidAmount > 0);
+        return {
+          id: customer.id,
+          customerName: customer.name,
+          customerPhone: customer.phone,
+          totalAmount: totalAmount,
+          paidAmount: paidAmount,
+          unpaidAmount: unpaidAmount,
+          lastTransactionDate: lastTransactionDate,
+          transactionCount: customerOutRecords.length,
+          status:
+            unpaidAmount > 0 ? (hasOverdue ? "overdue" : "unpaid") : "paid",
+          overdueDays: hasOverdue
+            ? Math.max(
+                1,
+                Math.floor(
+                  (Date.now() -
+                    new Date(
+                      customerOutRecords.find((r) => {
+                        if (!r.createTime && !r.time) return false;
+                        const d = new Date(r.createTime || r.time);
+                        return (
+                          Date.now() - d.getTime() > 7 * 24 * 60 * 60 * 1000
+                        );
+                      })?.createTime || Date.now(),
+                    ).getTime()) /
+                    (24 * 60 * 60 * 1000),
+                ),
+              )
+            : 0,
+          category: customer.category,
+        };
+      })
+      .filter((r) => r.transactionCount > 0 || r.unpaidAmount > 0);
 
     // 生成欠款记录 - 基于客户欠款数据
     const debtRecs = syncedCustomers
       .filter((c) => Number(c.debt || 0) > 0)
       .map((customer) => {
         const customerOutRecords = outRecordsList.filter(
-          (r) => r.recipientName === customer.name
+          (r) => r.recipientName === customer.name,
         );
-        const earliestRecord = customerOutRecords.length > 0
-          ? customerOutRecords.reduce((earliest, r) => {
-              const d = new Date(r.createTime || r.time);
-              return d < earliest ? d : earliest;
-            }, new Date())
-          : new Date();
-        const debtDate = earliestRecord.toISOString().split('T')[0];
-        const dueDate = new Date(earliestRecord.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        const overdueDays = Math.max(0, Math.floor((Date.now() - new Date(dueDate).getTime()) / (24 * 60 * 60 * 1000)));
+        const earliestRecord =
+          customerOutRecords.length > 0
+            ? customerOutRecords.reduce((earliest, r) => {
+                const d = new Date(r.createTime || r.time);
+                return d < earliest ? d : earliest;
+              }, new Date())
+            : new Date();
+        const debtDate = earliestRecord.toISOString().split("T")[0];
+        const dueDate = new Date(
+          earliestRecord.getTime() + 30 * 24 * 60 * 60 * 1000,
+        )
+          .toISOString()
+          .split("T")[0];
+        const overdueDays = Math.max(
+          0,
+          Math.floor(
+            (Date.now() - new Date(dueDate).getTime()) / (24 * 60 * 60 * 1000),
+          ),
+        );
         return {
-          id: customer.id + '_debt',
+          id: customer.id + "_debt",
           customerName: customer.name,
           customerPhone: customer.phone,
           debtAmount: Number(customer.debt),
@@ -446,7 +616,10 @@ const App = () => {
     });
     if (needsUpdate) {
       setCustomers(syncedCustomers);
-      localStorage.setItem("inventory_customers", JSON.stringify(syncedCustomers));
+      localStorage.setItem(
+        "inventory_customers",
+        JSON.stringify(syncedCustomers),
+      );
     }
 
     setTimeout(() => setFinanceLoading(false), 300);
@@ -482,10 +655,13 @@ const App = () => {
 
         // 确保表单默认值与加载的数据同步
         if (brandList.length > 0 && !pbrand) setPbrand(brandList[0]);
-        if (categoryList.length > 0 && !pcategory) setPcategory(categoryList[0]);
+        if (categoryList.length > 0 && !pcategory)
+          setPcategory(categoryList[0]);
         if (unitList.length > 0 && !punit) setPunit(unitList[0]);
         // 修正时间字段映射
-        setInRecords(inRecordsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })));
+        setInRecords(
+          inRecordsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })),
+        );
         const processedOutRecords = outRecordsRes.map((r) => ({
           ...r,
           time: formatTime(r.createTime),
@@ -496,13 +672,16 @@ const App = () => {
         }));
         setOutRecords(processedOutRecords);
 
+        const returnRecordsRes = await api.getReturns();
+        setReturnRecords(returnRecordsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })));
+
         // 加载客户数据（使用本地存储模拟）
         const savedCustomers = localStorage.getItem("inventory_customers");
         let loadedCustomers = [];
         if (savedCustomers) {
           loadedCustomers = JSON.parse(savedCustomers);
           // 兼容旧数据：补充 lastPurchaseDate 字段
-          loadedCustomers = loadedCustomers.map(c => ({
+          loadedCustomers = loadedCustomers.map((c) => ({
             ...c,
             lastPurchaseDate: c.lastPurchaseDate || "",
           }));
@@ -510,11 +689,15 @@ const App = () => {
         }
 
         // 加载财务数据 - 使用处理后的销售记录
-        loadFinanceData(loadedCustomers, processedOutRecords, JSON.parse(localStorage.getItem("inventory_payment_records") || "[]"));
+        loadFinanceData(
+          loadedCustomers,
+          processedOutRecords,
+          JSON.parse(localStorage.getItem("inventory_payment_records") || "[]"),
+        );
       } catch (error) {
         console.error("加载数据失败:", error);
-        alert('请求异常: ' + error.message);
-      } 
+        alert("请求异常: " + error.message);
+      }
     };
     fetchInitialData();
   }, []);
@@ -530,23 +713,23 @@ const App = () => {
   const numberToChinese = (num) => {
     const digits = ["零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖"];
     const units = ["", "拾", "佰", "仟", "万", "拾", "佰", "仟", "亿"];
-    
+
     if (num === 0) return "零元整";
     if (num < 0) return "负数" + numberToChinese(-num);
-    
+
     let result = "";
     const integerPart = Math.floor(num);
     const decimalPart = Math.round((num - integerPart) * 100);
-    
+
     // 处理整数部分
     if (integerPart > 0) {
       let str = integerPart.toString();
       let zeroFlag = false;
-      
+
       for (let i = 0; i < str.length; i++) {
         const digit = parseInt(str[i]);
         const unit = units[str.length - 1 - i];
-        
+
         if (digit === 0) {
           if (!zeroFlag && result.length > 0) {
             zeroFlag = true;
@@ -559,17 +742,17 @@ const App = () => {
           result += digits[digit] + unit;
         }
       }
-      
+
       result += "元";
     } else {
       result = "零元";
     }
-    
+
     // 处理小数部分
     if (decimalPart > 0) {
       const jiao = Math.floor(decimalPart / 10);
       const fen = decimalPart % 10;
-      
+
       if (jiao > 0) {
         result += digits[jiao] + "角";
       }
@@ -579,7 +762,7 @@ const App = () => {
     } else {
       result += "整";
     }
-    
+
     return result;
   };
 
@@ -602,7 +785,7 @@ const App = () => {
   // 打开客户收款记录弹窗
   const openPaymentRecordsModal = (customer) => {
     const customerPayments = paymentRecords.filter(
-      (p) => p.customerId === customer.id
+      (p) => p.customerId === customer.id,
     );
     setSelectedCustomerPayments(customerPayments);
     setShowPaymentRecordsModal(true);
@@ -610,19 +793,25 @@ const App = () => {
 
   // 删除收款记录
   const deletePaymentRecord = (paymentId) => {
-    if (!window.confirm("确认删除该收款记录？删除后将恢复对应的客户欠款。")) return;
-    
+    if (!window.confirm("确认删除该收款记录？删除后将恢复对应的客户欠款。"))
+      return;
+
     const payment = paymentRecords.find((p) => p.id === paymentId);
     if (!payment) return;
-    
+
     const updatedRecords = paymentRecords.filter((p) => p.id !== paymentId);
     setPaymentRecords(updatedRecords);
-    localStorage.setItem("inventory_payment_records", JSON.stringify(updatedRecords));
-    
-    setSelectedCustomerPayments(updatedRecords.filter((p) => p.customerId === payment.customerId));
-    
+    localStorage.setItem(
+      "inventory_payment_records",
+      JSON.stringify(updatedRecords),
+    );
+
+    setSelectedCustomerPayments(
+      updatedRecords.filter((p) => p.customerId === payment.customerId),
+    );
+
     loadFinanceData(customers, outRecords, updatedRecords);
-    
+
     alert("收款记录已删除，客户欠款已恢复");
   };
 
@@ -635,29 +824,29 @@ const App = () => {
   // 保存编辑的收款记录
   const saveEditPayment = () => {
     if (!editPaymentForm) return;
-    
+
     const newAmount = parseFloat(editPaymentForm.amount);
     const newDiscount = parseFloat(editPaymentForm.discount) || 0;
     const newActualAmount = Math.max(0, newAmount - newDiscount);
-    
+
     if (isNaN(newAmount) || newAmount <= 0) {
       alert("收款金额必须大于0");
       return;
     }
-    
+
     if (newDiscount < 0) {
       alert("优惠金额不能为负数");
       return;
     }
-    
+
     if (newDiscount > newAmount) {
       alert("优惠金额不能大于收款金额");
       return;
     }
-    
+
     const oldPayment = paymentRecords.find((p) => p.id === editingPaymentId);
     if (!oldPayment) return;
-    
+
     const updatedRecords = paymentRecords.map((p) => {
       if (p.id === editingPaymentId) {
         return {
@@ -675,15 +864,20 @@ const App = () => {
       return p;
     });
     setPaymentRecords(updatedRecords);
-    localStorage.setItem("inventory_payment_records", JSON.stringify(updatedRecords));
-    
-    setSelectedCustomerPayments(updatedRecords.filter((p) => p.customerId === oldPayment.customerId));
-    
+    localStorage.setItem(
+      "inventory_payment_records",
+      JSON.stringify(updatedRecords),
+    );
+
+    setSelectedCustomerPayments(
+      updatedRecords.filter((p) => p.customerId === oldPayment.customerId),
+    );
+
     setEditingPaymentId(null);
     setEditPaymentForm(null);
-    
+
     loadFinanceData(customers, outRecords, updatedRecords);
-    
+
     alert("收款记录已更新");
   };
 
@@ -691,38 +885,40 @@ const App = () => {
   const submitPayment = () => {
     const amount = parseFloat(paymentForm.amount);
     const discount = parseFloat(paymentForm.discount) || 0;
-    
+
     // 数据验证
     if (isNaN(amount) || amount <= 0) {
       alert("收款金额必须大于0");
       return;
     }
-    
+
     if (discount < 0) {
       alert("优惠金额不能为负数");
       return;
     }
-    
+
     if (discount > amount) {
       alert("优惠金额不能大于收款金额");
       return;
     }
-    
+
     const actualAmount = amount - discount;
-    
+
     const customer = customers.find((c) => c.id === paymentForm.customerId);
     if (!customer) {
       alert("客户不存在");
       return;
     }
-    
+
     const currentDebt = Number(customer.debt || 0);
-    
+
     if (actualAmount > currentDebt) {
-      alert(`收款金额超过客户欠款余额！\n当前欠款：¥${currentDebt.toFixed(2)}\n实际应收：¥${actualAmount.toFixed(2)}`);
+      alert(
+        `收款金额超过客户欠款余额！\n当前欠款：¥${currentDebt.toFixed(2)}\n实际应收：¥${actualAmount.toFixed(2)}`,
+      );
       return;
     }
-    
+
     // 生成收款记录
     const newPaymentRecord = {
       id: Date.now(),
@@ -737,17 +933,22 @@ const App = () => {
       transactionNo: paymentForm.transactionNo || "",
       createTime: new Date().toISOString(),
     };
-    
+
     const updatedRecords = [newPaymentRecord, ...paymentRecords];
     setPaymentRecords(updatedRecords);
-    localStorage.setItem("inventory_payment_records", JSON.stringify(updatedRecords));
-    
+    localStorage.setItem(
+      "inventory_payment_records",
+      JSON.stringify(updatedRecords),
+    );
+
     loadFinanceData(customers, outRecords, updatedRecords);
-    
+
     setShowPaymentModal(false);
-    
+
     // 显示成功提示
-    alert(`收款成功！\n客户：${paymentForm.customerName}\n收款金额：¥${amount.toFixed(2)}\n优惠金额：¥${discount.toFixed(2)}\n实际应收：¥${actualAmount.toFixed(2)}`);
+    alert(
+      `收款成功！\n客户：${paymentForm.customerName}\n收款金额：¥${amount.toFixed(2)}\n优惠金额：¥${discount.toFixed(2)}\n实际应收：¥${actualAmount.toFixed(2)}`,
+    );
   };
 
   // 库存日志状态
@@ -824,7 +1025,8 @@ const App = () => {
   const getFilteredInRecords = () => {
     return inRecords.filter((r) => {
       if (inFilter.supplierName) {
-        if (!r.supplierName || !r.supplierName.includes(inFilter.supplierName)) return false;
+        if (!r.supplierName || !r.supplierName.includes(inFilter.supplierName))
+          return false;
       }
       if (inFilter.docType && inFilter.docType !== "all") {
         if ((r.docType || "purchase") !== inFilter.docType) return false;
@@ -835,11 +1037,15 @@ const App = () => {
         if (!productName.includes(inFilter.productName)) return false;
       }
       if (inFilter.dateStart) {
-        const recordDate = (r.createTime || r.time || "").split(" ")[0].split("T")[0];
+        const recordDate = (r.createTime || r.time || "")
+          .split(" ")[0]
+          .split("T")[0];
         if (recordDate < inFilter.dateStart) return false;
       }
       if (inFilter.dateEnd) {
-        const recordDate = (r.createTime || r.time || "").split(" ")[0].split("T")[0];
+        const recordDate = (r.createTime || r.time || "")
+          .split(" ")[0]
+          .split("T")[0];
         if (recordDate > inFilter.dateEnd) return false;
       }
       return true;
@@ -867,10 +1073,15 @@ const App = () => {
   const getFilteredOutRecords = () => {
     return outRecords.filter((r) => {
       if (outFilter.customerName) {
-        if (!r.recipientName || !r.recipientName.includes(outFilter.customerName)) return false;
+        if (
+          !r.recipientName ||
+          !r.recipientName.includes(outFilter.customerName)
+        )
+          return false;
       }
       if (outFilter.paymentStatus && outFilter.paymentStatus !== "all") {
-        if ((r.paymentStatus || "unpaid") !== outFilter.paymentStatus) return false;
+        if ((r.paymentStatus || "unpaid") !== outFilter.paymentStatus)
+          return false;
       }
       if (outFilter.productName) {
         const product = products.find((p) => p.id === r.productId);
@@ -878,11 +1089,15 @@ const App = () => {
         if (!productName.includes(outFilter.productName)) return false;
       }
       if (outFilter.dateStart) {
-        const recordDate = (r.createTime || r.time || "").split(" ")[0].split("T")[0];
+        const recordDate = (r.createTime || r.time || "")
+          .split(" ")[0]
+          .split("T")[0];
         if (recordDate < outFilter.dateStart) return false;
       }
       if (outFilter.dateEnd) {
-        const recordDate = (r.createTime || r.time || "").split(" ")[0].split("T")[0];
+        const recordDate = (r.createTime || r.time || "")
+          .split(" ")[0]
+          .split("T")[0];
         if (recordDate > outFilter.dateEnd) return false;
       }
       return true;
@@ -915,7 +1130,12 @@ const App = () => {
   const recipientDropdownRef = useRef(null);
 
   // 首页图表 tooltip 状态
-  const [_chartTooltip, _setChartTooltip] = useState({ show: false, x: 0, y: 0, text: "" });
+  const [_chartTooltip, _setChartTooltip] = useState({
+    show: false,
+    x: 0,
+    y: 0,
+    text: "",
+  });
   const inDropdownRef = useRef(null);
   const outDropdownRef = useRef(null);
 
@@ -1020,15 +1240,15 @@ const App = () => {
         category: pcategory,
         brand: pbrand,
         unit: punit,
-        updateTime: new Date().toISOString().split('T')[0],
+        updateTime: new Date().toISOString().split("T")[0],
       };
-      
+
       if (productModalMode === "add") {
         await api.addProduct(productData);
       } else {
         await api.updateProduct(editingProductId, productData);
       }
-      
+
       const newProducts = await api.getProducts();
       setProducts(newProducts);
       setShowProductModal(false);
@@ -1123,8 +1343,18 @@ const App = () => {
   };
 
   // 库存操作日志
-  const addStockLog = (type, productId, productName, quantity, beforeStock, afterStock, remark) => {
-    const logs = JSON.parse(localStorage.getItem("inventory_stock_logs") || "[]");
+  const addStockLog = (
+    type,
+    productId,
+    productName,
+    quantity,
+    beforeStock,
+    afterStock,
+    remark,
+  ) => {
+    const logs = JSON.parse(
+      localStorage.getItem("inventory_stock_logs") || "[]",
+    );
     const newLog = {
       id: Date.now(),
       type, // 'in' | 'out'
@@ -1145,10 +1375,13 @@ const App = () => {
   };
 
   const getStockLogs = (filters = {}) => {
-    const logs = JSON.parse(localStorage.getItem("inventory_stock_logs") || "[]");
+    const logs = JSON.parse(
+      localStorage.getItem("inventory_stock_logs") || "[]",
+    );
     return logs.filter((log) => {
       if (filters.type && log.type !== filters.type) return false;
-      if (filters.productId && log.productId !== filters.productId) return false;
+      if (filters.productId && log.productId !== filters.productId)
+        return false;
       if (filters.startDate && log.createTime < filters.startDate) return false;
       if (filters.endDate && log.createTime > filters.endDate) return false;
       return true;
@@ -1162,17 +1395,17 @@ const App = () => {
       alert("请输入有效的商品和数量");
       return;
     }
-    
+
     // 获取当前商品信息
     const product = products.find((p) => p.id === id);
     if (!product) {
       alert("未找到该商品");
       return;
     }
-    
+
     const beforeStock = product.stock || 0;
     const afterStock = beforeStock + num;
-    
+
     setLoading(true);
     try {
       // 1. 添加采购记录
@@ -1182,32 +1415,57 @@ const App = () => {
         remark: inForm.remark,
         supplierName: inForm.supplierName || "",
       });
-      
+
       // 2. 更新商品库存（原子操作）
       const updatedProducts = products.map((p) => {
         if (p.id === id) {
-          return { ...p, stock: afterStock, updateTime: new Date().toISOString().split('T')[0] };
+          return {
+            ...p,
+            stock: afterStock,
+            updateTime: new Date().toISOString().split("T")[0],
+          };
         }
         return p;
       });
       setProducts(updatedProducts);
-      
+
       // 3. 同步更新本地存储
-      localStorage.setItem("inventory_products", JSON.stringify(updatedProducts));
-      
+      localStorage.setItem(
+        "inventory_products",
+        JSON.stringify(updatedProducts),
+      );
+
       // 4. 记录库存变动日志
-      addStockLog("in", id, product.name, num, beforeStock, afterStock, inForm.remark);
-      
+      addStockLog(
+        "in",
+        id,
+        product.name,
+        num,
+        beforeStock,
+        afterStock,
+        inForm.remark,
+      );
+
       // 5. 刷新采购记录列表
       const inRecsRes = await api.getRecords("in");
-      setInRecords(inRecsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })));
-      
+      setInRecords(
+        inRecsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })),
+      );
+
       // 6. 显示操作结果
-      alert(`采购成功！\n商品：${product.name}\n采购数量：${num}\n采购前库存：${beforeStock}\n采购后库存：${afterStock}`);
-      
+      alert(
+        `采购成功！\n商品：${product.name}\n采购数量：${num}\n采购前库存：${beforeStock}\n采购后库存：${afterStock}`,
+      );
+
       // 7. 关闭弹窗并清空表单
       setShowInModal(false);
-      setInForm({ productId: "", quantity: "", remark: "", docType: "purchase", supplierName: "" });
+      setInForm({
+        productId: "",
+        quantity: "",
+        remark: "",
+        docType: "purchase",
+        supplierName: "",
+      });
       setInSearchText("");
       setSupplierSearchText("");
     } catch (e) {
@@ -1225,7 +1483,9 @@ const App = () => {
     const newStatus = targetRecord.paymentStatus === "paid" ? "unpaid" : "paid";
     try {
       await api.updatePaymentStatus(recordId, newStatus);
-    } catch (_e) { /* fallback: update UI only */ }
+    } catch (_e) {
+      /* fallback: update UI only */
+    }
     const updated = outRecords.map((r) => {
       if (r.id === recordId) {
         return { ...r, paymentStatus: newStatus };
@@ -1249,7 +1509,8 @@ const App = () => {
   };
 
   const saveEditInRecord = async () => {
-    const { id, productId, quantity, remark, docType, supplierName } = editInForm;
+    const { id, productId, quantity, remark, docType, supplierName } =
+      editInForm;
     const q = parseInt(quantity);
     if (!id || isNaN(parseInt(productId)) || isNaN(q) || q <= 0) {
       alert("请填写完整且有效的信息");
@@ -1263,10 +1524,12 @@ const App = () => {
         q,
         remark || "",
         supplierName || "",
-        docType || "purchase"
+        docType || "purchase",
       );
       const inRecsRes = await api.getRecords("in");
-      setInRecords(inRecsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })));
+      setInRecords(
+        inRecsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })),
+      );
       const updatedProducts = await api.getProducts();
       setProducts(updatedProducts);
       setShowEditInModal(false);
@@ -1279,12 +1542,15 @@ const App = () => {
   };
 
   const deleteInRecord = async (recordId) => {
-    if (!window.confirm("确定要删除这条采购记录吗？删除后库存将自动回退。")) return;
+    if (!window.confirm("确定要删除这条采购记录吗？删除后库存将自动回退。"))
+      return;
     setLoading(true);
     try {
       await api.deleteInRecord(recordId);
       const inRecsRes = await api.getRecords("in");
-      setInRecords(inRecsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })));
+      setInRecords(
+        inRecsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })),
+      );
       const updatedProducts = await api.getProducts();
       setProducts(updatedProducts);
       alert("采购记录已删除");
@@ -1295,9 +1561,145 @@ const App = () => {
     }
   };
 
+  // ---------- 退货 ----------
+  const openReturnModal = (outRecord) => {
+    const product = products.find((p) => p.id === outRecord.productId);
+    setReturnForm({
+      outRecordId: outRecord.id,
+      productId: outRecord.productId,
+      quantity: Math.abs(outRecord.quantity),
+      unitPrice: outRecord.unitPrice || (product ? product.price : 0),
+      refundAmount: outRecord.totalAmount || (product ? product.price * Math.abs(outRecord.quantity) : 0),
+      reason: "",
+      recipientName: outRecord.recipientName || "",
+      remark: "",
+    });
+    setShowReturnModal(true);
+  };
+
+  const submitReturn = async () => {
+    const { outRecordId, productId, quantity, unitPrice, refundAmount, reason, recipientName, remark } = returnForm;
+    const q = parseInt(quantity);
+    const ua = parseFloat(unitPrice);
+    const ra = parseFloat(refundAmount);
+    if (!outRecordId || isNaN(parseInt(productId)) || isNaN(q) || q <= 0) {
+      alert("请填写完整且有效的退货信息");
+      return;
+    }
+    if (isNaN(ra) || ra <= 0) {
+      alert("退款金额必须大于0");
+      return;
+    }
+    if (!reason.trim()) {
+      alert("请填写退货原因");
+      return;
+    }
+    const outRecord = outRecords.find((r) => r.id === outRecordId);
+    if (outRecord && q > Math.abs(outRecord.quantity)) {
+      alert("退货数量不能超过原销售数量");
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.addReturn(outRecordId, parseInt(productId), q, ua, ra, reason, recipientName, remark);
+      const returnRecordsRes = await api.getReturns();
+      setReturnRecords(returnRecordsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })));
+      setShowReturnModal(false);
+      alert("退货申请已提交！");
+    } catch (e) {
+      alert("退货申请失败：" + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const approveReturn = async (returnId) => {
+    if (!window.confirm("确认审核通过此退货申请？审核通过后库存将自动回退。")) return;
+    setLoading(true);
+    try {
+      await api.updateReturnStatus(returnId, "approved");
+      const returnRecordsRes = await api.getReturns();
+      setReturnRecords(returnRecordsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })));
+      const updatedProducts = await api.getProducts();
+      setProducts(updatedProducts);
+      alert("退货已审核通过，库存已回退");
+    } catch (e) {
+      alert("操作失败：" + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refundReturn = async (returnId) => {
+    if (!window.confirm("确认已退款？")) return;
+    setLoading(true);
+    try {
+      await api.updateReturnStatus(returnId, "refunded");
+      const returnRecordsRes = await api.getReturns();
+      setReturnRecords(returnRecordsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })));
+      alert("已标记为已退款");
+    } catch (e) {
+      alert("操作失败：" + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const rejectReturn = async (returnId) => {
+    if (!window.confirm("确认拒绝此退货申请？")) return;
+    setLoading(true);
+    try {
+      await api.updateReturnStatus(returnId, "rejected");
+      const returnRecordsRes = await api.getReturns();
+      setReturnRecords(returnRecordsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })));
+      const updatedProducts = await api.getProducts();
+      setProducts(updatedProducts);
+      alert("退货申请已拒绝");
+    } catch (e) {
+      alert("操作失败：" + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteReturnRecord = async (returnId) => {
+    if (!window.confirm("确定要删除这条退货记录吗？")) return;
+    setLoading(true);
+    try {
+      await api.deleteReturn(returnId);
+      const returnRecordsRes = await api.getReturns();
+      setReturnRecords(returnRecordsRes.map((r) => ({ ...r, time: formatTime(r.createTime) })));
+      const updatedProducts = await api.getProducts();
+      setProducts(updatedProducts);
+      alert("退货记录已删除");
+    } catch (e) {
+      alert("删除失败：" + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getFilteredReturnRecords = () => {
+    return returnRecords.filter((r) => {
+      if (returnFilter.status !== "all" && r.status !== returnFilter.status) return false;
+      if (returnFilter.dateStart && r.createTime < returnFilter.dateStart) return false;
+      if (returnFilter.dateEnd && r.createTime > returnFilter.dateEnd) return false;
+      return true;
+    });
+  };
+
   // ---------- 销售 ----------
   const openOutModal = () => {
-    setOutForm({ productId: "", quantity: "", unitPrice: "", totalAmount: "", remark: "", recipientId: "", recipientName: "", paymentStatus: "unpaid" });
+    setOutForm({
+      productId: "",
+      quantity: "",
+      unitPrice: "",
+      totalAmount: "",
+      remark: "",
+      recipientId: "",
+      recipientName: "",
+      paymentStatus: "unpaid",
+    });
     setOutSearchText("");
     setOutDropdownOpen(false);
     setRecipientSearchText("");
@@ -1312,21 +1714,21 @@ const App = () => {
       alert("请输入有效的商品和数量");
       return;
     }
-    
+
     // 获取当前商品信息
     const product = products.find((p) => p.id === id);
     if (!product) {
       alert("未找到该商品");
       return;
     }
-    
+
     const beforeStock = product.stock || 0;
     if (beforeStock < num) {
       alert(`库存不足！当前库存：${beforeStock}，销售数量：${num}`);
       return;
     }
     const afterStock = beforeStock - num;
-    
+
     // 计算单价和总金额
     const unitPrice = parseFloat(outForm.unitPrice) || product.price || 0;
     const totalAmount = unitPrice * num;
@@ -1343,22 +1745,37 @@ const App = () => {
         recipientName: outForm.recipientName || "",
         paymentStatus: outForm.paymentStatus || "unpaid",
       });
-      
+
       // 2. 更新商品库存（原子操作）
       const updatedProducts = products.map((p) => {
         if (p.id === id) {
-          return { ...p, stock: afterStock, updateTime: new Date().toISOString().split('T')[0] };
+          return {
+            ...p,
+            stock: afterStock,
+            updateTime: new Date().toISOString().split("T")[0],
+          };
         }
         return p;
       });
       setProducts(updatedProducts);
-      
+
       // 3. 同步更新本地存储
-      localStorage.setItem("inventory_products", JSON.stringify(updatedProducts));
-      
+      localStorage.setItem(
+        "inventory_products",
+        JSON.stringify(updatedProducts),
+      );
+
       // 4. 记录库存变动日志
-      addStockLog("out", id, product.name, num, beforeStock, afterStock, outForm.remark);
-      
+      addStockLog(
+        "out",
+        id,
+        product.name,
+        num,
+        beforeStock,
+        afterStock,
+        outForm.remark,
+      );
+
       // 5. 刷新销售记录列表
       const outRecsRes = await api.getRecords("out");
       const processedOutRecs = outRecsRes.map((r) => ({
@@ -1370,16 +1787,28 @@ const App = () => {
         totalAmount: r.totalAmount || 0,
       }));
       setOutRecords(processedOutRecs);
-      
+
       // 6. 显示操作结果
-      alert(`销售成功！\n商品：${product.name}\n销售数量：${num}\n单价：¥${unitPrice.toFixed(2)}\n销售总金额：¥${totalAmount.toFixed(2)}\n销售前库存：${beforeStock}\n销售后库存：${afterStock}`);
-      
+      alert(
+        `销售成功！\n商品：${product.name}\n销售数量：${num}\n单价：¥${unitPrice.toFixed(2)}\n销售总金额：¥${totalAmount.toFixed(2)}\n销售前库存：${beforeStock}\n销售后库存：${afterStock}`,
+      );
+
       // 7. 关闭弹窗并清空表单
       setShowOutModal(false);
-      setOutForm({ productId: "", quantity: "", unitPrice: "", totalAmount: "", remark: "", recipientId: "", recipientName: "", paymentStatus: "unpaid" });
+      setOutForm({
+        productId: "",
+        quantity: "",
+        unitPrice: "",
+        totalAmount: "",
+        remark: "",
+        recipientId: "",
+        recipientName: "",
+        paymentStatus: "unpaid",
+      });
       setOutSearchText("");
       setRecipientSearchText("");
-      
+      setOutSubTab("records");
+
       // 8. 触发财务数据刷新
       loadFinanceData(customers, processedOutRecs, paymentRecords);
     } catch (e) {
@@ -1402,13 +1831,28 @@ const App = () => {
       setProductSubTab("list");
     } else if (tab === "in") {
       setShowInModal(false);
-      setInForm({ productId: "", quantity: "", remark: "", docType: "purchase", supplierName: "" });
+      setInForm({
+        productId: "",
+        quantity: "",
+        remark: "",
+        docType: "purchase",
+        supplierName: "",
+      });
       setInSearchText("");
       setSupplierSearchText("");
       setInSubTab("records");
     } else if (tab === "out") {
       setShowOutModal(false);
-      setOutForm({ productId: "", quantity: "", unitPrice: "", totalAmount: "", remark: "", recipientId: "", recipientName: "", paymentStatus: "unpaid" });
+      setOutForm({
+        productId: "",
+        quantity: "",
+        unitPrice: "",
+        totalAmount: "",
+        remark: "",
+        recipientId: "",
+        recipientName: "",
+        paymentStatus: "unpaid",
+      });
       setOutSearchText("");
       setRecipientSearchText("");
     } else if (tab === "customers") {
@@ -1441,6 +1885,11 @@ const App = () => {
     { name: "供应商管理", key: "suppliers" },
   ];
 
+  const outSubTabs = [
+    { name: "销售记录", key: "records" },
+    { name: "退货管理", key: "returns" },
+  ];
+
   const financeSubTabs = [
     { name: "对账汇总", key: "overview" },
     { name: "客户对账", key: "reconciliation" },
@@ -1457,9 +1906,14 @@ const App = () => {
       >
         <div className="flex items-center gap-2">
           <Package size={14} className="text-blue-600" />
-          <span className="text-xs font-medium text-gray-700">极简进销存系统</span>
+          <span className="text-xs font-medium text-gray-700">
+            极简进销存系统
+          </span>
         </div>
-        <div className="flex items-center gap-1" style={{ WebkitAppRegion: "no-drag" }}>
+        <div
+          className="flex items-center gap-1"
+          style={{ WebkitAppRegion: "no-drag" }}
+        >
           <button
             onClick={minimizeApp}
             className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 transition-colors"
@@ -1535,9 +1989,7 @@ const App = () => {
               <>
                 <ChevronRight size={14} className="text-gray-400" />
                 <span className="font-medium text-gray-800">
-                  {financeSubTab === "reconciliation"
-                    ? "客户对账"
-                    : "欠款管理"}
+                  {financeSubTab === "reconciliation" ? "客户对账" : "欠款管理"}
                 </span>
               </>
             )}
@@ -1545,6 +1997,12 @@ const App = () => {
               <>
                 <ChevronRight size={14} className="text-gray-400" />
                 <span className="font-medium text-gray-800">供应商管理</span>
+              </>
+            )}
+            {tab === "out" && outSubTab !== "records" && (
+              <>
+                <ChevronRight size={14} className="text-gray-400" />
+                <span className="font-medium text-gray-800">退货管理</span>
               </>
             )}
           </div>
@@ -1638,6 +2096,28 @@ const App = () => {
           </div>
         )}
 
+        {tab === "out" && (
+          <div className="bg-white border-b border-gray-200 px-6 py-0 flex space-x-1">
+            {outSubTabs.map((sub) => (
+              <button
+                key={sub.key}
+                onClick={() => {
+                  setOutSubTab(sub.key);
+                  setLoading(true);
+                  setTimeout(() => setLoading(false), 300);
+                }}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  outSubTab === sub.key
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                {sub.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="flex-1 overflow-auto p-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -1662,7 +2142,11 @@ const App = () => {
                         ? inSubTab === "records"
                           ? "采购记录"
                           : "供应商管理"
-                        : currentMenu?.name}
+                        : tab === "out"
+                          ? outSubTab === "records"
+                            ? "销售记录"
+                            : "退货管理"
+                          : currentMenu?.name}
               </h2>
               <div className="flex gap-2">
                 {tab === "products" && productSubTab === "list" && (
@@ -1698,7 +2182,14 @@ const App = () => {
                       <button
                         onClick={() => {
                           setSupplierModalMode("add");
-                          setSupplierForm({ id: null, name: "", contact: "", phone: "", address: "", remark: "" });
+                          setSupplierForm({
+                            id: null,
+                            name: "",
+                            contact: "",
+                            phone: "",
+                            address: "",
+                            remark: "",
+                          });
                           setShowSupplierModal(true);
                         }}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center gap-2"
@@ -1710,12 +2201,14 @@ const App = () => {
                 )}
                 {tab === "out" && (
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={openOutModal}
-                      className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700 transition-colors flex items-center gap-2"
-                    >
-                      <ArrowDownRight size={16} /> 新销售
-                    </button>
+                    {outSubTab === "records" && (
+                      <button
+                        onClick={openOutModal}
+                        className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700 transition-colors flex items-center gap-2"
+                      >
+                        <ArrowDownRight size={16} /> 新销售
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         setStockLogs(getStockLogs({ type: "out" }));
@@ -1738,19 +2231,24 @@ const App = () => {
                     <button
                       onClick={() => {
                         // 导出数据功能
-                        const data = financeSubTab === "debt" ? debtRecords : reconciliationData;
+                        const data =
+                          financeSubTab === "debt"
+                            ? debtRecords
+                            : reconciliationData;
                         if (!data || data.length === 0) return;
                         const headers = Object.keys(data[0]).join(",");
                         const rows = data.map((row) =>
                           Object.values(row)
                             .map((val) => `"${val}"`)
-                            .join(",")
+                            .join(","),
                         );
                         const csv = [headers, ...rows].join("\n");
-                        const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+                        const blob = new Blob(["\ufeff" + csv], {
+                          type: "text/csv;charset=utf-8;",
+                        });
                         const link = document.createElement("a");
                         link.href = URL.createObjectURL(blob);
-                        link.download = `财务数据_${financeSubTab}_${new Date().toISOString().split('T')[0]}.csv`;
+                        link.download = `财务数据_${financeSubTab}_${new Date().toISOString().split("T")[0]}.csv`;
                         link.click();
                       }}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
@@ -1803,12 +2301,17 @@ const App = () => {
                     <div className="space-y-4">
                       <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
                         <div className="relative w-full sm:w-80">
-                          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <Search
+                            size={16}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                          />
                           <input
                             type="text"
                             placeholder="搜索客户名称、手机号"
                             value={customerSearchKey}
-                            onChange={(e) => setCustomerSearchKey(e.target.value)}
+                            onChange={(e) =>
+                              setCustomerSearchKey(e.target.value)
+                            }
                             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                           />
                         </div>
@@ -1837,13 +2340,27 @@ const App = () => {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="bg-gray-50 text-gray-600">
-                              <th className="px-4 py-3 text-left font-medium rounded-tl-lg">客户名称</th>
-                              <th className="px-4 py-3 text-left font-medium">手机号</th>
-                              <th className="px-4 py-3 text-left font-medium">欠款金额</th>
-                              <th className="px-4 py-3 text-left font-medium">客户分类</th>
-                              <th className="px-4 py-3 text-left font-medium">来源方式</th>
-                              <th className="px-4 py-3 text-left font-medium">上次购买</th>
-                              <th className="px-4 py-3 text-right font-medium rounded-tr-lg">操作</th>
+                              <th className="px-4 py-3 text-left font-medium rounded-tl-lg">
+                                客户名称
+                              </th>
+                              <th className="px-4 py-3 text-left font-medium">
+                                手机号
+                              </th>
+                              <th className="px-4 py-3 text-left font-medium">
+                                欠款金额
+                              </th>
+                              <th className="px-4 py-3 text-left font-medium">
+                                客户分类
+                              </th>
+                              <th className="px-4 py-3 text-left font-medium">
+                                来源方式
+                              </th>
+                              <th className="px-4 py-3 text-left font-medium">
+                                上次购买
+                              </th>
+                              <th className="px-4 py-3 text-right font-medium rounded-tr-lg">
+                                操作
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1854,29 +2371,48 @@ const App = () => {
                                   c.phone.includes(customerSearchKey),
                               )
                               .map((c) => (
-                                <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                  <td className="px-4 py-3 font-medium">{c.name}</td>
-                                  <td className="px-4 py-3 text-gray-500">{c.phone}</td>
+                                <tr
+                                  key={c.id}
+                                  className="border-b border-gray-100 hover:bg-gray-50"
+                                >
+                                  <td className="px-4 py-3 font-medium">
+                                    {c.name}
+                                  </td>
+                                  <td className="px-4 py-3 text-gray-500">
+                                    {c.phone}
+                                  </td>
                                   <td className="px-4 py-3">
-                                    <span className={Number(c.debt) > 0 ? "text-red-500 font-medium" : "text-gray-700"}>
+                                    <span
+                                      className={
+                                        Number(c.debt) > 0
+                                          ? "text-red-500 font-medium"
+                                          : "text-gray-700"
+                                      }
+                                    >
                                       ¥{Number(c.debt).toFixed(2)}
                                     </span>
                                   </td>
                                   <td className="px-4 py-3">
-                                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                      c.category === "VIP客户"
-                                        ? "bg-purple-100 text-purple-700"
-                                        : c.category === "批发客户"
-                                          ? "bg-blue-100 text-blue-700"
-                                          : c.category === "零售客户"
-                                            ? "bg-green-100 text-green-700"
-                                            : "bg-gray-100 text-gray-700"
-                                    }`}>
+                                    <span
+                                      className={`px-2 py-1 rounded text-xs font-medium ${
+                                        c.category === "VIP客户"
+                                          ? "bg-purple-100 text-purple-700"
+                                          : c.category === "批发客户"
+                                            ? "bg-blue-100 text-blue-700"
+                                            : c.category === "零售客户"
+                                              ? "bg-green-100 text-green-700"
+                                              : "bg-gray-100 text-gray-700"
+                                      }`}
+                                    >
                                       {c.category}
                                     </span>
                                   </td>
-                                  <td className="px-4 py-3 text-gray-500">{c.source}</td>
-                                  <td className="px-4 py-3 text-gray-500">{c.lastPurchaseDate || "无记录"}</td>
+                                  <td className="px-4 py-3 text-gray-500">
+                                    {c.source}
+                                  </td>
+                                  <td className="px-4 py-3 text-gray-500">
+                                    {c.lastPurchaseDate || "无记录"}
+                                  </td>
                                   <td className="px-4 py-3 text-right">
                                     <div className="flex items-center justify-end gap-1">
                                       <button
@@ -1903,12 +2439,25 @@ const App = () => {
                                       </button>
                                       <button
                                         onClick={() => {
-                                          if (window.confirm(`确认删除客户 "${c.name}"？`)) {
-                                            const updated = customers.filter((x) => x.id !== c.id);
+                                          if (
+                                            window.confirm(
+                                              `确认删除客户 "${c.name}"？`,
+                                            )
+                                          ) {
+                                            const updated = customers.filter(
+                                              (x) => x.id !== c.id,
+                                            );
                                             setCustomers(updated);
-                                            localStorage.setItem("inventory_customers", JSON.stringify(updated));
+                                            localStorage.setItem(
+                                              "inventory_customers",
+                                              JSON.stringify(updated),
+                                            );
                                             // 触发财务数据刷新
-                                            loadFinanceData(updated, outRecords, paymentRecords);
+                                            loadFinanceData(
+                                              updated,
+                                              outRecords,
+                                              paymentRecords,
+                                            );
                                           }
                                         }}
                                         className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
@@ -1926,8 +2475,213 @@ const App = () => {
                                 c.phone.includes(customerSearchKey),
                             ).length === 0 && (
                               <tr>
-                                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                                <td
+                                  colSpan={6}
+                                  className="px-4 py-8 text-center text-gray-500"
+                                >
                                   暂无客户，请点击右上角添加
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {tab === "out" && outSubTab === "returns" && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200 rounded-xl p-4">
+                          <div className="flex items-center gap-2">
+                            <Clock size={18} className="text-yellow-600" />
+                            <span className="text-sm text-yellow-600 font-medium">待审核</span>
+                          </div>
+                          <p className="text-2xl font-bold text-gray-800 mt-1">
+                            {returnRecords.filter((r) => r.status === "pending").length} 笔
+                          </p>
+                        </div>
+                        <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-4">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 size={18} className="text-green-600" />
+                            <span className="text-sm text-green-600 font-medium">已审核</span>
+                          </div>
+                          <p className="text-2xl font-bold text-gray-800 mt-1">
+                            {returnRecords.filter((r) => r.status === "approved").length} 笔
+                          </p>
+                        </div>
+                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4">
+                          <div className="flex items-center gap-2">
+                            <DollarSign size={18} className="text-blue-600" />
+                            <span className="text-sm text-blue-600 font-medium">已退款</span>
+                          </div>
+                          <p className="text-2xl font-bold text-gray-800 mt-1">
+                            {returnRecords.filter((r) => r.status === "refunded").length} 笔
+                          </p>
+                        </div>
+                        <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-xl p-4">
+                          <div className="flex items-center gap-2">
+                            <XCircle size={18} className="text-red-600" />
+                            <span className="text-sm text-red-600 font-medium">已拒绝</span>
+                          </div>
+                          <p className="text-2xl font-bold text-gray-800 mt-1">
+                            {returnRecords.filter((r) => r.status === "rejected").length} 笔
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50/80 border border-gray-100 rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Filter size={16} className="text-gray-400" />
+                            <span className="text-sm font-medium text-gray-700">筛选条件</span>
+                          </div>
+                          <button
+                            onClick={() => setReturnFilter({ status: "all", dateStart: "", dateEnd: "" })}
+                            className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
+                          >
+                            <RefreshCw size={12} /> 重置筛选
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <select
+                            value={returnFilter.status}
+                            onChange={(e) => setReturnFilter({ ...returnFilter, status: e.target.value })}
+                            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                          >
+                            <option value="all">全部状态</option>
+                            <option value="pending">待审核</option>
+                            <option value="approved">已审核</option>
+                            <option value="refunded">已退款</option>
+                            <option value="rejected">已拒绝</option>
+                          </select>
+                          <input
+                            type="date"
+                            value={returnFilter.dateStart}
+                            onChange={(e) => setReturnFilter({ ...returnFilter, dateStart: e.target.value })}
+                            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                            title="开始日期"
+                          />
+                          <input
+                            type="date"
+                            value={returnFilter.dateEnd}
+                            onChange={(e) => setReturnFilter({ ...returnFilter, dateEnd: e.target.value })}
+                            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                            title="结束日期"
+                          />
+                        </div>
+                      </div>
+
+                      {(() => {
+                        const filtered = getFilteredReturnRecords();
+                        return (
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>
+                              共 <span className="font-semibold text-gray-700">{filtered.length}</span> 条退货记录
+                              {filtered.length !== returnRecords.length && (
+                                <span className="ml-1">（已从 {returnRecords.length} 条中筛选）</span>
+                              )}
+                            </span>
+                          </div>
+                        );
+                      })()}
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-50 text-gray-600">
+                              <th className="px-4 py-3 text-left font-medium rounded-tl-lg">退货单号</th>
+                              <th className="px-4 py-3 text-left font-medium">关联销售单号</th>
+                              <th className="px-4 py-3 text-left font-medium">商品名称</th>
+                              <th className="px-4 py-3 text-left font-medium">退货数量</th>
+                              <th className="px-4 py-3 text-left font-medium">单价</th>
+                              <th className="px-4 py-3 text-left font-medium">退款金额</th>
+                              <th className="px-4 py-3 text-left font-medium">客户</th>
+                              <th className="px-4 py-3 text-left font-medium">退货原因</th>
+                              <th className="px-4 py-3 text-left font-medium">状态</th>
+                              <th className="px-4 py-3 text-left font-medium">时间</th>
+                              <th className="px-4 py-3 text-left font-medium rounded-tr-lg">操作</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {getFilteredReturnRecords().map((r) => {
+                              const product = products.find((p) => p.id === r.productId);
+                              const productName = product?.name || "未知商品";
+                              const statusConfig = {
+                                pending: { label: "待审核", bg: "bg-yellow-100", text: "text-yellow-700" },
+                                approved: { label: "已审核", bg: "bg-green-100", text: "text-green-700" },
+                                refunded: { label: "已退款", bg: "bg-blue-100", text: "text-blue-700" },
+                                rejected: { label: "已拒绝", bg: "bg-red-100", text: "text-red-700" },
+                              };
+                              const sc = statusConfig[r.status] || statusConfig.pending;
+                              return (
+                                <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                  <td className="px-4 py-3 text-gray-500">RT-{r.id}</td>
+                                  <td className="px-4 py-3 text-gray-500">OUT-{r.outRecordId}</td>
+                                  <td className="px-4 py-3 font-medium">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
+                                        <Package size={12} className="text-blue-600" />
+                                      </div>
+                                      {productName}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-red-500 font-medium">-{r.quantity}</td>
+                                  <td className="px-4 py-3 text-gray-600">¥{(r.unitPrice || 0).toFixed(2)}</td>
+                                  <td className="px-4 py-3 text-orange-600 font-medium">¥{(r.refundAmount || 0).toFixed(2)}</td>
+                                  <td className="px-4 py-3 text-gray-700">{r.recipientName || "-"}</td>
+                                  <td className="px-4 py-3 text-gray-500 max-w-[120px] truncate" title={r.reason}>{r.reason || "-"}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${sc.bg} ${sc.text}`}>
+                                      {sc.label}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-gray-400 text-xs">{r.time}</td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center gap-1">
+                                      {r.status === "pending" && (
+                                        <>
+                                          <button
+                                            onClick={() => approveReturn(r.id)}
+                                            className="p-1.5 text-green-500 hover:bg-green-50 rounded-lg transition-colors"
+                                            title="审核通过"
+                                          >
+                                            <CheckCircle2 size={14} />
+                                          </button>
+                                          <button
+                                            onClick={() => rejectReturn(r.id)}
+                                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="拒绝"
+                                          >
+                                            <XCircle size={14} />
+                                          </button>
+                                        </>
+                                      )}
+                                      {r.status === "approved" && (
+                                        <button
+                                          onClick={() => refundReturn(r.id)}
+                                          className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                                          title="确认退款"
+                                        >
+                                          <DollarSign size={14} />
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => deleteReturnRecord(r.id)}
+                                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                        title="删除"
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {getFilteredReturnRecords().length === 0 && (
+                              <tr>
+                                <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
+                                  {returnRecords.length > 0 ? "没有匹配的退货记录，请调整筛选条件" : "暂无退货记录"}
                                 </td>
                               </tr>
                             )}
@@ -1944,50 +2698,101 @@ const App = () => {
                         <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-5">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm text-blue-600 font-medium">库存总价值</p>
+                              <p className="text-sm text-blue-600 font-medium">
+                                库存总价值
+                              </p>
                               <p className="text-2xl font-bold text-gray-800 mt-1">
-                                ¥{products.reduce((sum, p) => sum + p.price * p.stock, 0).toFixed(2)}
+                                ¥
+                                {products
+                                  .reduce(
+                                    (sum, p) => sum + p.price * p.stock,
+                                    0,
+                                  )
+                                  .toFixed(2)}
                               </p>
                             </div>
                             <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center text-white">
                               <span className="text-xl font-bold">¥</span>
                             </div>
                           </div>
-                          <p className="text-xs text-blue-500 mt-2">基于当前库存与单价计算</p>
+                          <p className="text-xs text-blue-500 mt-2">
+                            基于当前库存与单价计算
+                          </p>
                         </div>
                         <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-5">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm text-purple-600 font-medium">销售总价值</p>
+                              <p className="text-sm text-purple-600 font-medium">
+                                销售总价值
+                              </p>
                               <p className="text-2xl font-bold text-gray-800 mt-1">
-                                ¥{outRecords.reduce((sum, r) => {
-                                  const product = products.find((p) => p.id === r.productId);
-                                  return sum + (product ? product.price * Math.abs(r.quantity) : 0);
-                                }, 0).toFixed(2)}
+                                ¥
+                                {outRecords
+                                  .reduce((sum, r) => {
+                                    const product = products.find(
+                                      (p) => p.id === r.productId,
+                                    );
+                                    return (
+                                      sum +
+                                      (product
+                                        ? product.price * Math.abs(r.quantity)
+                                        : 0)
+                                    );
+                                  }, 0)
+                                  .toFixed(2)}
                               </p>
                             </div>
                             <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center text-white">
                               <span className="text-xl font-bold">¥</span>
                             </div>
                           </div>
-                          <p className="text-xs text-purple-500 mt-2">基于销售记录累计计算</p>
+                          <p className="text-xs text-purple-500 mt-2">
+                            基于销售记录累计计算
+                          </p>
                         </div>
                         <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-5">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm text-green-600 font-medium">利润</p>
+                              <p className="text-sm text-green-600 font-medium">
+                                利润
+                              </p>
                               <p className="text-2xl font-bold text-gray-800 mt-1">
-                                ¥{(() => {
-                                  const salesRevenue = outRecords.reduce((sum, r) => {
-                                    if (r.totalAmount) return sum + r.totalAmount;
-                                    const product = products.find((p) => p.id === r.productId);
-                                    return sum + (product ? product.price * Math.abs(r.quantity) : 0);
-                                  }, 0);
-                                  const costOfGoods = outRecords.reduce((sum, r) => {
-                                    const product = products.find((p) => p.id === r.productId);
-                                    return sum + (product ? (product.costPrice || 0) * Math.abs(r.quantity) : 0);
-                                  }, 0);
-                                  return (salesRevenue - costOfGoods).toFixed(2);
+                                ¥
+                                {(() => {
+                                  const salesRevenue = outRecords.reduce(
+                                    (sum, r) => {
+                                      if (r.totalAmount)
+                                        return sum + r.totalAmount;
+                                      const product = products.find(
+                                        (p) => p.id === r.productId,
+                                      );
+                                      return (
+                                        sum +
+                                        (product
+                                          ? product.price * Math.abs(r.quantity)
+                                          : 0)
+                                      );
+                                    },
+                                    0,
+                                  );
+                                  const costOfGoods = outRecords.reduce(
+                                    (sum, r) => {
+                                      const product = products.find(
+                                        (p) => p.id === r.productId,
+                                      );
+                                      return (
+                                        sum +
+                                        (product
+                                          ? (product.costPrice || 0) *
+                                            Math.abs(r.quantity)
+                                          : 0)
+                                      );
+                                    },
+                                    0,
+                                  );
+                                  return (salesRevenue - costOfGoods).toFixed(
+                                    2,
+                                  );
                                 })()}
                               </p>
                             </div>
@@ -1995,21 +2800,31 @@ const App = () => {
                               <DollarSign size={24} />
                             </div>
                           </div>
-                          <p className="text-xs text-green-500 mt-2">销售额 - 采购成本</p>
+                          <p className="text-xs text-green-500 mt-2">
+                            销售额 - 采购成本
+                          </p>
                         </div>
                         <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-5">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm text-orange-600 font-medium">本月销售总量</p>
+                              <p className="text-sm text-orange-600 font-medium">
+                                本月销售总量
+                              </p>
                               <p className="text-2xl font-bold text-gray-800 mt-1">
-                                {outRecords.reduce((sum, r) => sum + Math.abs(r.quantity), 0)} 件
+                                {outRecords.reduce(
+                                  (sum, r) => sum + Math.abs(r.quantity),
+                                  0,
+                                )}{" "}
+                                件
                               </p>
                             </div>
                             <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center text-white">
                               <TrendingDown size={24} />
                             </div>
                           </div>
-                          <p className="text-xs text-orange-500 mt-2">{outRecords.length} 笔销售记录</p>
+                          <p className="text-xs text-orange-500 mt-2">
+                            {outRecords.length} 笔销售记录
+                          </p>
                         </div>
                       </div>
 
@@ -2019,33 +2834,58 @@ const App = () => {
                         <div className="bg-white border border-gray-200 rounded-xl p-5">
                           <div className="flex items-center gap-2 mb-4">
                             <BarChart3 size={18} className="text-blue-600" />
-                            <h3 className="font-semibold text-gray-800">库存周转概览</h3>
+                            <h3 className="font-semibold text-gray-800">
+                              库存周转概览
+                            </h3>
                           </div>
                           <div className="space-y-4">
                             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <span className="text-sm text-gray-600">总商品种类</span>
-                              <span className="text-lg font-bold text-gray-800">{products.length} 种</span>
-                            </div>
-                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <span className="text-sm text-gray-600">库存总量</span>
+                              <span className="text-sm text-gray-600">
+                                总商品种类
+                              </span>
                               <span className="text-lg font-bold text-gray-800">
-                                {products.reduce((sum, p) => sum + p.stock, 0)} 件
+                                {products.length} 种
                               </span>
                             </div>
                             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <span className="text-sm text-gray-600">平均单价</span>
+                              <span className="text-sm text-gray-600">
+                                库存总量
+                              </span>
                               <span className="text-lg font-bold text-gray-800">
-                                ¥{products.length > 0 ? (products.reduce((sum, p) => sum + p.price, 0) / products.length).toFixed(2) : "0.00"}
+                                {products.reduce((sum, p) => sum + p.stock, 0)}{" "}
+                                件
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <span className="text-sm text-gray-600">
+                                平均单价
+                              </span>
+                              <span className="text-lg font-bold text-gray-800">
+                                ¥
+                                {products.length > 0
+                                  ? (
+                                      products.reduce(
+                                        (sum, p) => sum + p.price,
+                                        0,
+                                      ) / products.length
+                                    ).toFixed(2)
+                                  : "0.00"}
                               </span>
                             </div>
                             <div
                               onClick={() => setShowOutOfStockModal(true)}
                               className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-red-50 transition-colors group"
                             >
-                              <span className="text-sm text-gray-600 group-hover:text-red-600">缺货商品</span>
+                              <span className="text-sm text-gray-600 group-hover:text-red-600">
+                                缺货商品
+                              </span>
                               <span className="text-lg font-bold text-red-500 flex items-center gap-1">
-                                {products.filter((p) => p.stock === 0).length} 种
-                                <ChevronRight size={14} className="text-gray-400 group-hover:text-red-400" />
+                                {products.filter((p) => p.stock === 0).length}{" "}
+                                种
+                                <ChevronRight
+                                  size={14}
+                                  className="text-gray-400 group-hover:text-red-400"
+                                />
                               </span>
                             </div>
                           </div>
@@ -2055,28 +2895,52 @@ const App = () => {
                         <div className="bg-white border border-gray-200 rounded-xl p-5">
                           <div className="flex items-center gap-2 mb-4">
                             <AlertTriangle size={18} className="text-red-600" />
-                            <h3 className="font-semibold text-gray-800">客户欠款排行</h3>
+                            <h3 className="font-semibold text-gray-800">
+                              客户欠款排行
+                            </h3>
                           </div>
                           <div className="space-y-3">
                             {(() => {
                               const customerDebtList = customers
-                                .map((c) => ({ name: c.name, debt: Number(c.debt || 0) }))
+                                .map((c) => ({
+                                  name: c.name,
+                                  debt: Number(c.debt || 0),
+                                }))
                                 .filter((c) => c.debt > 0)
                                 .sort((a, b) => b.debt - a.debt)
                                 .slice(0, 8);
-                              const maxDebt = customerDebtList.length > 0 ? Math.max(...customerDebtList.map((c) => c.debt), 1) : 1;
-                              return customerDebtList.length > 0
-                                ? customerDebtList.map(({ name, debt }, i) => {
+                              const maxDebt =
+                                customerDebtList.length > 0
+                                  ? Math.max(
+                                      ...customerDebtList.map((c) => c.debt),
+                                      1,
+                                    )
+                                  : 1;
+                              return customerDebtList.length > 0 ? (
+                                customerDebtList.map(({ name, debt }, i) => {
                                   const pct = (debt / maxDebt) * 100;
-                                  const colors = ["bg-red-500", "bg-orange-500", "bg-yellow-500", "bg-amber-500", "bg-lime-500", "bg-green-500", "bg-emerald-500", "bg-teal-500"];
+                                  const colors = [
+                                    "bg-red-500",
+                                    "bg-orange-500",
+                                    "bg-yellow-500",
+                                    "bg-amber-500",
+                                    "bg-lime-500",
+                                    "bg-green-500",
+                                    "bg-emerald-500",
+                                    "bg-teal-500",
+                                  ];
                                   return (
                                     <div key={name}>
                                       <div className="flex justify-between text-sm mb-1">
                                         <span className="text-gray-700 flex items-center gap-1">
-                                          <span className="w-5 h-5 bg-gray-100 rounded-full flex items-center justify-center text-xs font-bold text-gray-500">{i + 1}</span>
+                                          <span className="w-5 h-5 bg-gray-100 rounded-full flex items-center justify-center text-xs font-bold text-gray-500">
+                                            {i + 1}
+                                          </span>
                                           {name}
                                         </span>
-                                        <span className="text-red-600 font-medium">¥{debt.toFixed(2)}</span>
+                                        <span className="text-red-600 font-medium">
+                                          ¥{debt.toFixed(2)}
+                                        </span>
                                       </div>
                                       <div className="w-full bg-gray-100 rounded-full h-2.5">
                                         <div
@@ -2087,12 +2951,15 @@ const App = () => {
                                     </div>
                                   );
                                 })
-                                : (
-                                  <div className="text-center py-6 text-gray-400 text-sm">
-                                    <CheckCircle2 size={24} className="mx-auto mb-2 text-green-400" />
-                                    所有客户均已结清欠款
-                                  </div>
-                                );
+                              ) : (
+                                <div className="text-center py-6 text-gray-400 text-sm">
+                                  <CheckCircle2
+                                    size={24}
+                                    className="mx-auto mb-2 text-green-400"
+                                  />
+                                  所有客户均已结清欠款
+                                </div>
+                              );
                             })()}
                           </div>
                         </div>
@@ -2102,7 +2969,9 @@ const App = () => {
                       <div className="bg-white border border-gray-200 rounded-xl p-5">
                         <div className="flex items-center gap-2 mb-4">
                           <TrendingUp size={18} className="text-green-600" />
-                          <h3 className="font-semibold text-gray-800">库存变动趋势</h3>
+                          <h3 className="font-semibold text-gray-800">
+                            库存变动趋势
+                          </h3>
                         </div>
                         <div className="h-64 flex items-end gap-2 px-4">
                           {(() => {
@@ -2113,22 +2982,45 @@ const App = () => {
                               d.setDate(d.getDate() - i);
                               const dateStr = d.toISOString().split("T")[0];
                               const dayIn = inRecords
-                                .filter((r) => r.time && r.time.startsWith(dateStr))
+                                .filter(
+                                  (r) => r.time && r.time.startsWith(dateStr),
+                                )
                                 .reduce((sum, r) => sum + r.quantity, 0);
                               const dayOut = outRecords
-                                .filter((r) => r.time && r.time.startsWith(dateStr))
-                                .reduce((sum, r) => sum + Math.abs(r.quantity), 0);
-                              data.push({ date: dateStr.slice(5), in: dayIn, out: dayOut });
+                                .filter(
+                                  (r) => r.time && r.time.startsWith(dateStr),
+                                )
+                                .reduce(
+                                  (sum, r) => sum + Math.abs(r.quantity),
+                                  0,
+                                );
+                              data.push({
+                                date: dateStr.slice(5),
+                                in: dayIn,
+                                out: dayOut,
+                              });
                             }
-                            const maxVal = Math.max(...data.map((d) => Math.max(d.in, d.out)), 1);
+                            const maxVal = Math.max(
+                              ...data.map((d) => Math.max(d.in, d.out)),
+                              1,
+                            );
                             return (
                               <>
                                 {data.map((d, i) => (
-                                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                                    <div className="w-full flex gap-0.5 items-end justify-center relative" style={{ height: "180px" }}>
+                                  <div
+                                    key={i}
+                                    className="flex-1 flex flex-col items-center gap-1"
+                                  >
+                                    <div
+                                      className="w-full flex gap-0.5 items-end justify-center relative"
+                                      style={{ height: "180px" }}
+                                    >
                                       <div
                                         className="w-full max-w-[20px] bg-green-400 rounded-t transition-all duration-500 hover:bg-green-500 cursor-pointer relative group"
-                                        style={{ height: `${(d.in / maxVal) * 100}%`, minHeight: d.in > 0 ? "4px" : "0" }}
+                                        style={{
+                                          height: `${(d.in / maxVal) * 100}%`,
+                                          minHeight: d.in > 0 ? "4px" : "0",
+                                        }}
                                       >
                                         {d.in > 0 && (
                                           <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-100 whitespace-nowrap pointer-events-none z-10 shadow-sm">
@@ -2138,7 +3030,10 @@ const App = () => {
                                       </div>
                                       <div
                                         className="w-full max-w-[20px] bg-orange-400 rounded-t transition-all duration-500 hover:bg-orange-500 cursor-pointer relative group"
-                                        style={{ height: `${(d.out / maxVal) * 100}%`, minHeight: d.out > 0 ? "4px" : "0" }}
+                                        style={{
+                                          height: `${(d.out / maxVal) * 100}%`,
+                                          minHeight: d.out > 0 ? "4px" : "0",
+                                        }}
                                       >
                                         {d.out > 0 && (
                                           <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-semibold text-orange-700 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-100 whitespace-nowrap pointer-events-none z-10 shadow-sm">
@@ -2147,7 +3042,9 @@ const App = () => {
                                         )}
                                       </div>
                                     </div>
-                                    <span className="text-xs text-gray-500">{d.date}</span>
+                                    <span className="text-xs text-gray-500">
+                                      {d.date}
+                                    </span>
                                   </div>
                                 ))}
                               </>
@@ -2157,11 +3054,15 @@ const App = () => {
                         <div className="flex justify-center gap-6 mt-4">
                           <div className="flex items-center gap-2">
                             <div className="w-3 h-3 bg-green-400 rounded" />
-                            <span className="text-sm text-gray-600">采购量</span>
+                            <span className="text-sm text-gray-600">
+                              采购量
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="w-3 h-3 bg-orange-400 rounded" />
-                            <span className="text-sm text-gray-600">销售量</span>
+                            <span className="text-sm text-gray-600">
+                              销售量
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -2173,41 +3074,83 @@ const App = () => {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="bg-gray-50 text-gray-600">
-                            <th className="px-4 py-3 text-left font-medium rounded-tl-lg">ID</th>
-                            <th className="px-4 py-3 text-left font-medium">商品名称</th>
-                            <th className="px-4 py-3 text-left font-medium">品牌</th>
-                            <th className="px-4 py-3 text-left font-medium">分类</th>
-                            <th className="px-4 py-3 text-left font-medium">单价</th>
-                            <th className="px-4 py-3 text-left font-medium">库存</th>
-                            <th className="px-4 py-3 text-left font-medium">单位</th>
-                            <th className="px-4 py-3 text-left font-medium rounded-tr-lg">更新时间</th>
+                            <th className="px-4 py-3 text-left font-medium rounded-tl-lg">
+                              ID
+                            </th>
+                            <th className="px-4 py-3 text-left font-medium">
+                              商品名称
+                            </th>
+                            <th className="px-4 py-3 text-left font-medium">
+                              品牌
+                            </th>
+                            <th className="px-4 py-3 text-left font-medium">
+                              分类
+                            </th>
+                            <th className="px-4 py-3 text-left font-medium">
+                              单价
+                            </th>
+                            <th className="px-4 py-3 text-left font-medium">
+                              库存
+                            </th>
+                            <th className="px-4 py-3 text-left font-medium">
+                              单位
+                            </th>
+                            <th className="px-4 py-3 text-left font-medium rounded-tr-lg">
+                              更新时间
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
                           {filteredProducts.length > 0 ? (
                             filteredProducts.map((p) => (
-                              <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                <td className="px-4 py-3 text-gray-500">{p.id}</td>
-                                <td className="px-4 py-3 font-medium">{p.name}</td>
-                                <td className="px-4 py-3 text-gray-500">{p.brand || "-"}</td>
-                                <td className="px-4 py-3 text-gray-500">{p.category}</td>
-                                <td className="px-4 py-3">¥{p.price.toFixed(2)}</td>
+                              <tr
+                                key={p.id}
+                                className="border-b border-gray-100 hover:bg-gray-50"
+                              >
+                                <td className="px-4 py-3 text-gray-500">
+                                  {p.id}
+                                </td>
+                                <td className="px-4 py-3 font-medium">
+                                  {p.name}
+                                </td>
+                                <td className="px-4 py-3 text-gray-500">
+                                  {p.brand || "-"}
+                                </td>
+                                <td className="px-4 py-3 text-gray-500">
+                                  {p.category}
+                                </td>
+                                <td className="px-4 py-3">
+                                  ¥{p.price.toFixed(2)}
+                                </td>
                                 <td className="px-4 py-3">
                                   {p.stock > 50 ? (
-                                    <span className="text-green-600 font-medium">{p.stock}</span>
+                                    <span className="text-green-600 font-medium">
+                                      {p.stock}
+                                    </span>
                                   ) : p.stock > 0 ? (
-                                    <span className="text-orange-500 font-medium">{p.stock}</span>
+                                    <span className="text-orange-500 font-medium">
+                                      {p.stock}
+                                    </span>
                                   ) : (
-                                    <span className="text-red-500 font-medium">缺货</span>
+                                    <span className="text-red-500 font-medium">
+                                      缺货
+                                    </span>
                                   )}
                                 </td>
-                                <td className="px-4 py-3 text-gray-500">{p.unit || "-"}</td>
-                                <td className="px-4 py-3 text-gray-400">{p.updateTime}</td>
+                                <td className="px-4 py-3 text-gray-500">
+                                  {p.unit || "-"}
+                                </td>
+                                <td className="px-4 py-3 text-gray-400">
+                                  {p.updateTime}
+                                </td>
                               </tr>
                             ))
                           ) : (
                             <tr>
-                              <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                              <td
+                                colSpan={8}
+                                className="px-4 py-8 text-center text-gray-500"
+                              >
                                 暂无商品
                               </td>
                             </tr>
@@ -2224,43 +3167,90 @@ const App = () => {
                           <table className="w-full text-sm">
                             <thead>
                               <tr className="bg-gray-50 text-gray-600">
-                                <th className="px-4 py-3 text-left font-medium rounded-tl-lg">ID</th>
-                                <th className="px-4 py-3 text-left font-medium">商品名称</th>
-                                <th className="px-4 py-3 text-left font-medium">品牌</th>
-                                <th className="px-4 py-3 text-left font-medium">分类</th>
-                                <th className="px-4 py-3 text-left font-medium">采购价</th>
-                                <th className="px-4 py-3 text-left font-medium">销售价</th>
-                                <th className="px-4 py-3 text-left font-medium">库存</th>
-                                <th className="px-4 py-3 text-left font-medium">单位</th>
-                                <th className="px-4 py-3 text-left font-medium">更新时间</th>
-                                <th className="px-4 py-3 text-right font-medium rounded-tr-lg">操作</th>
+                                <th className="px-4 py-3 text-left font-medium rounded-tl-lg">
+                                  ID
+                                </th>
+                                <th className="px-4 py-3 text-left font-medium">
+                                  商品名称
+                                </th>
+                                <th className="px-4 py-3 text-left font-medium">
+                                  品牌
+                                </th>
+                                <th className="px-4 py-3 text-left font-medium">
+                                  分类
+                                </th>
+                                <th className="px-4 py-3 text-left font-medium">
+                                  采购价
+                                </th>
+                                <th className="px-4 py-3 text-left font-medium">
+                                  销售价
+                                </th>
+                                <th className="px-4 py-3 text-left font-medium">
+                                  库存
+                                </th>
+                                <th className="px-4 py-3 text-left font-medium">
+                                  单位
+                                </th>
+                                <th className="px-4 py-3 text-left font-medium">
+                                  更新时间
+                                </th>
+                                <th className="px-4 py-3 text-right font-medium rounded-tr-lg">
+                                  操作
+                                </th>
                               </tr>
                             </thead>
                             <tbody>
                               {products.length > 0 ? (
                                 products.map((p) => (
-                                  <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                    <td className="px-4 py-3 text-gray-500">{p.id}</td>
-                                    <td className="px-4 py-3 font-medium">{p.name}</td>
-                                    <td className="px-4 py-3 text-gray-500">{p.brand || "-"}</td>
-                                    <td className="px-4 py-3 text-gray-500">{p.category}</td>
-                                    <td className="px-4 py-3">¥{(p.costPrice || 0).toFixed(2)}</td>
-                                    <td className="px-4 py-3">¥{p.price.toFixed(2)}</td>
+                                  <tr
+                                    key={p.id}
+                                    className="border-b border-gray-100 hover:bg-gray-50"
+                                  >
+                                    <td className="px-4 py-3 text-gray-500">
+                                      {p.id}
+                                    </td>
+                                    <td className="px-4 py-3 font-medium">
+                                      {p.name}
+                                    </td>
+                                    <td className="px-4 py-3 text-gray-500">
+                                      {p.brand || "-"}
+                                    </td>
+                                    <td className="px-4 py-3 text-gray-500">
+                                      {p.category}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      ¥{(p.costPrice || 0).toFixed(2)}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      ¥{p.price.toFixed(2)}
+                                    </td>
                                     <td className="px-4 py-3">
                                       {p.stock > 50 ? (
-                                        <span className="text-green-600 font-medium">{p.stock}</span>
+                                        <span className="text-green-600 font-medium">
+                                          {p.stock}
+                                        </span>
                                       ) : p.stock > 0 ? (
-                                        <span className="text-orange-500 font-medium">{p.stock}</span>
+                                        <span className="text-orange-500 font-medium">
+                                          {p.stock}
+                                        </span>
                                       ) : (
-                                        <span className="text-red-500 font-medium">缺货</span>
+                                        <span className="text-red-500 font-medium">
+                                          缺货
+                                        </span>
                                       )}
                                     </td>
-                                    <td className="px-4 py-3 text-gray-500">{p.unit || "-"}</td>
-                                    <td className="px-4 py-3 text-gray-400">{p.updateTime}</td>
+                                    <td className="px-4 py-3 text-gray-500">
+                                      {p.unit || "-"}
+                                    </td>
+                                    <td className="px-4 py-3 text-gray-400">
+                                      {p.updateTime}
+                                    </td>
                                     <td className="px-4 py-3 text-right">
                                       <div className="flex items-center justify-end gap-1">
                                         <button
-                                          onClick={() => openEditProductModal(p)}
+                                          onClick={() =>
+                                            openEditProductModal(p)
+                                          }
                                           className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
                                           title="编辑"
                                         >
@@ -2279,7 +3269,10 @@ const App = () => {
                                 ))
                               ) : (
                                 <tr>
-                                  <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                                  <td
+                                    colSpan={9}
+                                    className="px-4 py-8 text-center text-gray-500"
+                                  >
                                     暂无商品，请点击右上角添加
                                   </td>
                                 </tr>
@@ -2293,7 +3286,9 @@ const App = () => {
                         <div className="max-w-md space-y-4">
                           <div className="flex gap-2">
                             <input
-                              onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+                              onKeyDown={(e) =>
+                                e.key === "Enter" && e.preventDefault()
+                              }
                               value={newBrand}
                               onChange={(e) => setNewBrand(e.target.value)}
                               placeholder="输入品牌名称"
@@ -2312,7 +3307,10 @@ const App = () => {
                               <tbody>
                                 {brands.length > 0 ? (
                                   brands.map((b, i) => (
-                                    <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
+                                    <tr
+                                      key={i}
+                                      className="border-b last:border-0 hover:bg-gray-50"
+                                    >
                                       <td className="px-4 py-3">{b}</td>
                                       <td className="px-4 py-3 text-right">
                                         <button
@@ -2326,7 +3324,10 @@ const App = () => {
                                   ))
                                 ) : (
                                   <tr>
-                                    <td colSpan={2} className="px-4 py-8 text-center text-gray-500">
+                                    <td
+                                      colSpan={2}
+                                      className="px-4 py-8 text-center text-gray-500"
+                                    >
                                       暂无品牌
                                     </td>
                                   </tr>
@@ -2341,7 +3342,9 @@ const App = () => {
                         <div className="max-w-md space-y-4">
                           <div className="flex gap-2">
                             <input
-                              onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+                              onKeyDown={(e) =>
+                                e.key === "Enter" && e.preventDefault()
+                              }
                               value={newCategory}
                               onChange={(e) => setNewCategory(e.target.value)}
                               placeholder="输入分类名称"
@@ -2360,7 +3363,10 @@ const App = () => {
                               <tbody>
                                 {categories.length > 0 ? (
                                   categories.map((c, i) => (
-                                    <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
+                                    <tr
+                                      key={i}
+                                      className="border-b last:border-0 hover:bg-gray-50"
+                                    >
                                       <td className="px-4 py-3">{c}</td>
                                       <td className="px-4 py-3 text-right">
                                         <button
@@ -2374,7 +3380,10 @@ const App = () => {
                                   ))
                                 ) : (
                                   <tr>
-                                    <td colSpan={2} className="px-4 py-8 text-center text-gray-500">
+                                    <td
+                                      colSpan={2}
+                                      className="px-4 py-8 text-center text-gray-500"
+                                    >
                                       暂无分类
                                     </td>
                                   </tr>
@@ -2389,7 +3398,9 @@ const App = () => {
                         <div className="max-w-md space-y-4">
                           <div className="flex gap-2">
                             <input
-                              onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+                              onKeyDown={(e) =>
+                                e.key === "Enter" && e.preventDefault()
+                              }
                               value={newUnit}
                               onChange={(e) => setNewUnit(e.target.value)}
                               placeholder="输入单位名称"
@@ -2408,7 +3419,10 @@ const App = () => {
                               <tbody>
                                 {units.length > 0 ? (
                                   units.map((u, i) => (
-                                    <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
+                                    <tr
+                                      key={i}
+                                      className="border-b last:border-0 hover:bg-gray-50"
+                                    >
                                       <td className="px-4 py-3">{u}</td>
                                       <td className="px-4 py-3 text-right">
                                         <button
@@ -2422,7 +3436,10 @@ const App = () => {
                                   ))
                                 ) : (
                                   <tr>
-                                    <td colSpan={2} className="px-4 py-8 text-center text-gray-500">
+                                    <td
+                                      colSpan={2}
+                                      className="px-4 py-8 text-center text-gray-500"
+                                    >
                                       暂无单位
                                     </td>
                                   </tr>
@@ -2443,29 +3460,56 @@ const App = () => {
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-4">
                               <div className="flex items-center gap-2">
-                                <ArrowUpRight size={18} className="text-green-600" />
-                                <span className="text-sm text-green-600 font-medium">采购总笔数</span>
+                                <ArrowUpRight
+                                  size={18}
+                                  className="text-green-600"
+                                />
+                                <span className="text-sm text-green-600 font-medium">
+                                  采购总笔数
+                                </span>
                               </div>
-                              <p className="text-2xl font-bold text-gray-800 mt-1">{inRecords.length} 笔</p>
+                              <p className="text-2xl font-bold text-gray-800 mt-1">
+                                {inRecords.length} 笔
+                              </p>
                             </div>
                             <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4">
                               <div className="flex items-center gap-2">
                                 <Package size={18} className="text-blue-600" />
-                                <span className="text-sm text-blue-600 font-medium">采购总数量</span>
+                                <span className="text-sm text-blue-600 font-medium">
+                                  采购总数量
+                                </span>
                               </div>
                               <p className="text-2xl font-bold text-gray-800 mt-1">
-                                {inRecords.reduce((sum, r) => sum + r.quantity, 0)} 件
+                                {inRecords.reduce(
+                                  (sum, r) => sum + r.quantity,
+                                  0,
+                                )}{" "}
+                                件
                               </p>
                             </div>
                             <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4">
                               <div className="flex items-center gap-2">
-                                <span className="text-sm text-purple-600 font-medium">采购总金额</span>
+                                <span className="text-sm text-purple-600 font-medium">
+                                  采购总金额
+                                </span>
                               </div>
                               <p className="text-2xl font-bold text-gray-800 mt-1">
-                                ¥{inRecords.reduce((sum, r) => {
-                                  const product = products.find((p) => p.id === r.productId);
-                                  return sum + (product ? (product.costPrice || product.price || 0) * r.quantity : 0);
-                                }, 0).toFixed(2)}
+                                ¥
+                                {inRecords
+                                  .reduce((sum, r) => {
+                                    const product = products.find(
+                                      (p) => p.id === r.productId,
+                                    );
+                                    return (
+                                      sum +
+                                      (product
+                                        ? (product.costPrice ||
+                                            product.price ||
+                                            0) * r.quantity
+                                        : 0)
+                                    );
+                                  }, 0)
+                                  .toFixed(2)}
                               </p>
                             </div>
                           </div>
@@ -2475,7 +3519,9 @@ const App = () => {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <Search size={16} className="text-gray-400" />
-                                <span className="text-sm font-medium text-gray-700">筛选条件</span>
+                                <span className="text-sm font-medium text-gray-700">
+                                  筛选条件
+                                </span>
                                 {activeFilterCount(inFilter) > 0 && (
                                   <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
                                     {activeFilterCount(inFilter)} 个条件生效
@@ -2483,7 +3529,15 @@ const App = () => {
                                 )}
                               </div>
                               <button
-                                onClick={() => setInFilter({ supplierName: "", docType: "all", productName: "", dateStart: "", dateEnd: "" })}
+                                onClick={() =>
+                                  setInFilter({
+                                    supplierName: "",
+                                    docType: "all",
+                                    productName: "",
+                                    dateStart: "",
+                                    dateEnd: "",
+                                  })
+                                }
                                 className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
                               >
                                 <RefreshCw size={12} /> 重置筛选
@@ -2491,28 +3545,49 @@ const App = () => {
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                               <div className="relative">
-                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <Search
+                                  size={14}
+                                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                />
                                 <input
                                   type="text"
                                   placeholder="供应商名称"
                                   value={inFilter.supplierName}
-                                  onChange={(e) => setInFilter({ ...inFilter, supplierName: e.target.value })}
+                                  onChange={(e) =>
+                                    setInFilter({
+                                      ...inFilter,
+                                      supplierName: e.target.value,
+                                    })
+                                  }
                                   className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
                                 />
                               </div>
                               <div className="relative">
-                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <Search
+                                  size={14}
+                                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                />
                                 <input
                                   type="text"
                                   placeholder="商品名称"
                                   value={inFilter.productName}
-                                  onChange={(e) => setInFilter({ ...inFilter, productName: e.target.value })}
+                                  onChange={(e) =>
+                                    setInFilter({
+                                      ...inFilter,
+                                      productName: e.target.value,
+                                    })
+                                  }
                                   className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
                                 />
                               </div>
                               <select
                                 value={inFilter.docType}
-                                onChange={(e) => setInFilter({ ...inFilter, docType: e.target.value })}
+                                onChange={(e) =>
+                                  setInFilter({
+                                    ...inFilter,
+                                    docType: e.target.value,
+                                  })
+                                }
                                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
                               >
                                 <option value="all">全部单据类型</option>
@@ -2524,14 +3599,24 @@ const App = () => {
                               <input
                                 type="date"
                                 value={inFilter.dateStart}
-                                onChange={(e) => setInFilter({ ...inFilter, dateStart: e.target.value })}
+                                onChange={(e) =>
+                                  setInFilter({
+                                    ...inFilter,
+                                    dateStart: e.target.value,
+                                  })
+                                }
                                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
                                 title="开始日期"
                               />
                               <input
                                 type="date"
                                 value={inFilter.dateEnd}
-                                onChange={(e) => setInFilter({ ...inFilter, dateEnd: e.target.value })}
+                                onChange={(e) =>
+                                  setInFilter({
+                                    ...inFilter,
+                                    dateEnd: e.target.value,
+                                  })
+                                }
                                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
                                 title="结束日期"
                               />
@@ -2544,9 +3629,15 @@ const App = () => {
                             return (
                               <div className="flex items-center justify-between text-xs text-gray-500">
                                 <span>
-                                  共 <span className="font-semibold text-gray-700">{filtered.length}</span> 条记录
+                                  共{" "}
+                                  <span className="font-semibold text-gray-700">
+                                    {filtered.length}
+                                  </span>{" "}
+                                  条记录
                                   {filtered.length !== inRecords.length && (
-                                    <span className="ml-1">（已从 {inRecords.length} 条中筛选）</span>
+                                    <span className="ml-1">
+                                      （已从 {inRecords.length} 条中筛选）
+                                    </span>
                                   )}
                                 </span>
                               </div>
@@ -2557,56 +3648,113 @@ const App = () => {
                             <table className="w-full text-sm">
                               <thead>
                                 <tr className="bg-gray-50 text-gray-600">
-                                  <th className="px-4 py-3 text-left font-medium rounded-tl-lg">单据类型</th>
-                                  <th className="px-4 py-3 text-left font-medium">商品ID</th>
-                                  <th className="px-4 py-3 text-left font-medium">商品名称</th>
-                                  <th className="px-4 py-3 text-left font-medium">数量</th>
-                                  <th className="px-4 py-3 text-left font-medium">供应商</th>
-                                  <th className="px-4 py-3 text-left font-medium">备注</th>
-                                  <th className="px-4 py-3 text-left font-medium">时间</th>
-                                  <th className="px-4 py-3 text-left font-medium rounded-tr-lg">操作</th>
+                                  <th className="px-4 py-3 text-left font-medium rounded-tl-lg">
+                                    单据类型
+                                  </th>
+                                  <th className="px-4 py-3 text-left font-medium">
+                                    商品ID
+                                  </th>
+                                  <th className="px-4 py-3 text-left font-medium">
+                                    商品名称
+                                  </th>
+                                  <th className="px-4 py-3 text-left font-medium">
+                                    数量
+                                  </th>
+                                  <th className="px-4 py-3 text-left font-medium">
+                                    供应商
+                                  </th>
+                                  <th className="px-4 py-3 text-left font-medium">
+                                    备注
+                                  </th>
+                                  <th className="px-4 py-3 text-left font-medium">
+                                    时间
+                                  </th>
+                                  <th className="px-4 py-3 text-left font-medium rounded-tr-lg">
+                                    操作
+                                  </th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {getFilteredInRecords().map((r) => {
-                                  const product = products.find((p) => p.id === r.productId);
-                                  const productName = product?.name || r.productName || "未知商品";
+                                  const product = products.find(
+                                    (p) => p.id === r.productId,
+                                  );
+                                  const productName =
+                                    product?.name ||
+                                    r.productName ||
+                                    "未知商品";
                                   const docTypeMap = {
-                                    purchase: { label: "采购入库", color: "bg-green-100 text-green-700" },
-                                    return: { label: "采购退货", color: "bg-red-100 text-red-700" },
-                                    transfer: { label: "调拨入库", color: "bg-blue-100 text-blue-700" },
-                                    other: { label: "其他入库", color: "bg-gray-100 text-gray-700" },
+                                    purchase: {
+                                      label: "采购入库",
+                                      color: "bg-green-100 text-green-700",
+                                    },
+                                    return: {
+                                      label: "采购退货",
+                                      color: "bg-red-100 text-red-700",
+                                    },
+                                    transfer: {
+                                      label: "调拨入库",
+                                      color: "bg-blue-100 text-blue-700",
+                                    },
+                                    other: {
+                                      label: "其他入库",
+                                      color: "bg-gray-100 text-gray-700",
+                                    },
                                   };
-                                  const docTypeInfo = docTypeMap[r.docType || "purchase"];
+                                  const docTypeInfo =
+                                    docTypeMap[r.docType || "purchase"];
                                   return (
-                                    <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                    <tr
+                                      key={r.id}
+                                      className="border-b border-gray-100 hover:bg-gray-50"
+                                    >
                                       <td className="px-4 py-3">
-                                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${docTypeInfo.color}`}>
+                                        <span
+                                          className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${docTypeInfo.color}`}
+                                        >
                                           {docTypeInfo.label}
                                         </span>
                                       </td>
-                                      <td className="px-4 py-3 text-gray-500">{r.productId}</td>
+                                      <td className="px-4 py-3 text-gray-500">
+                                        {r.productId}
+                                      </td>
                                       <td className="px-4 py-3 font-medium">
                                         <div className="flex items-center gap-2">
                                           <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
-                                            <Package size={12} className="text-blue-600" />
+                                            <Package
+                                              size={12}
+                                              className="text-blue-600"
+                                            />
                                           </div>
                                           {productName}
                                         </div>
                                       </td>
-                                      <td className="px-4 py-3 text-green-600 font-medium">+{r.quantity}</td>
+                                      <td className="px-4 py-3 text-green-600 font-medium">
+                                        +{r.quantity}
+                                      </td>
                                       <td className="px-4 py-3">
                                         {r.supplierName ? (
                                           <div className="flex items-center gap-1.5">
-                                            <User size={14} className="text-blue-500" />
-                                            <span className="text-gray-700">{r.supplierName}</span>
+                                            <User
+                                              size={14}
+                                              className="text-blue-500"
+                                            />
+                                            <span className="text-gray-700">
+                                              {r.supplierName}
+                                            </span>
                                           </div>
                                         ) : (
-                                          <span className="text-gray-400">-</span>
+                                          <span className="text-gray-400">
+                                            -
+                                          </span>
                                         )}
                                       </td>
-                                      <td className="px-4 py-3 text-gray-500">{r.remark || "-"}</td>
-                                      <td className="px-4 py-3 text-gray-400">{r.time}</td>
+                                      <td className="px-4 py-3 text-gray-500">
+                                        {r.remark || "-"}
+                                      </td>
+                                      <td className="px-4 py-3 text-gray-400">
+                                        {r.time}
+                                      </td>
                                       <td className="px-4 py-3">
                                         <div className="flex items-center gap-1">
                                           <button
@@ -2630,8 +3778,13 @@ const App = () => {
                                 })}
                                 {getFilteredInRecords().length === 0 && (
                                   <tr>
-                                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                                      {inRecords.length > 0 ? "没有匹配的采购记录，请调整筛选条件" : "暂无采购记录"}
+                                    <td
+                                      colSpan={8}
+                                      className="px-4 py-8 text-center text-gray-500"
+                                    >
+                                      {inRecords.length > 0
+                                        ? "没有匹配的采购记录，请调整筛选条件"
+                                        : "暂无采购记录"}
                                     </td>
                                   </tr>
                                 )}
@@ -2645,12 +3798,17 @@ const App = () => {
                         <div className="space-y-4">
                           <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
                             <div className="relative w-full sm:w-80">
-                              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                              <Search
+                                size={16}
+                                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                              />
                               <input
                                 type="text"
                                 placeholder="搜索供应商名称、联系人"
                                 value={supplierSearchText || ""}
-                                onChange={(e) => setSupplierSearchText(e.target.value)}
+                                onChange={(e) =>
+                                  setSupplierSearchText(e.target.value)
+                                }
                                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                               />
                             </div>
@@ -2660,27 +3818,57 @@ const App = () => {
                             <table className="w-full text-sm">
                               <thead>
                                 <tr className="bg-gray-50 text-gray-600">
-                                  <th className="px-4 py-3 text-left font-medium rounded-tl-lg">供应商名称</th>
-                                  <th className="px-4 py-3 text-left font-medium">联系人</th>
-                                  <th className="px-4 py-3 text-left font-medium">联系电话</th>
-                                  <th className="px-4 py-3 text-left font-medium">地址</th>
-                                  <th className="px-4 py-3 text-left font-medium">备注</th>
-                                  <th className="px-4 py-3 text-right font-medium rounded-tr-lg">操作</th>
+                                  <th className="px-4 py-3 text-left font-medium rounded-tl-lg">
+                                    供应商名称
+                                  </th>
+                                  <th className="px-4 py-3 text-left font-medium">
+                                    联系人
+                                  </th>
+                                  <th className="px-4 py-3 text-left font-medium">
+                                    联系电话
+                                  </th>
+                                  <th className="px-4 py-3 text-left font-medium">
+                                    地址
+                                  </th>
+                                  <th className="px-4 py-3 text-left font-medium">
+                                    备注
+                                  </th>
+                                  <th className="px-4 py-3 text-right font-medium rounded-tr-lg">
+                                    操作
+                                  </th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {suppliers
-                                  .filter((s) =>
-                                    s.name.includes(supplierSearchText || "") ||
-                                    s.contact?.includes(supplierSearchText || "")
+                                  .filter(
+                                    (s) =>
+                                      s.name.includes(
+                                        supplierSearchText || "",
+                                      ) ||
+                                      s.contact?.includes(
+                                        supplierSearchText || "",
+                                      ),
                                   )
                                   .map((s) => (
-                                    <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                      <td className="px-4 py-3 font-medium">{s.name}</td>
-                                      <td className="px-4 py-3 text-gray-500">{s.contact || "-"}</td>
-                                      <td className="px-4 py-3 text-gray-500">{s.phone || "-"}</td>
-                                      <td className="px-4 py-3 text-gray-500">{s.address || "-"}</td>
-                                      <td className="px-4 py-3 text-gray-500">{s.remark || "-"}</td>
+                                    <tr
+                                      key={s.id}
+                                      className="border-b border-gray-100 hover:bg-gray-50"
+                                    >
+                                      <td className="px-4 py-3 font-medium">
+                                        {s.name}
+                                      </td>
+                                      <td className="px-4 py-3 text-gray-500">
+                                        {s.contact || "-"}
+                                      </td>
+                                      <td className="px-4 py-3 text-gray-500">
+                                        {s.phone || "-"}
+                                      </td>
+                                      <td className="px-4 py-3 text-gray-500">
+                                        {s.address || "-"}
+                                      </td>
+                                      <td className="px-4 py-3 text-gray-500">
+                                        {s.remark || "-"}
+                                      </td>
                                       <td className="px-4 py-3 text-right">
                                         <div className="flex items-center justify-end gap-1">
                                           <button
@@ -2696,10 +3884,20 @@ const App = () => {
                                           </button>
                                           <button
                                             onClick={() => {
-                                              if (window.confirm(`确认删除供应商 "${s.name}"？`)) {
-                                                const updated = suppliers.filter((x) => x.id !== s.id);
+                                              if (
+                                                window.confirm(
+                                                  `确认删除供应商 "${s.name}"？`,
+                                                )
+                                              ) {
+                                                const updated =
+                                                  suppliers.filter(
+                                                    (x) => x.id !== s.id,
+                                                  );
                                                 setSuppliers(updated);
-                                                localStorage.setItem("inventory_suppliers", JSON.stringify(updated));
+                                                localStorage.setItem(
+                                                  "inventory_suppliers",
+                                                  JSON.stringify(updated),
+                                                );
                                               }
                                             }}
                                             className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
@@ -2711,12 +3909,18 @@ const App = () => {
                                       </td>
                                     </tr>
                                   ))}
-                                {suppliers.filter((s) =>
-                                  s.name.includes(supplierSearchText || "") ||
-                                  s.contact?.includes(supplierSearchText || "")
+                                {suppliers.filter(
+                                  (s) =>
+                                    s.name.includes(supplierSearchText || "") ||
+                                    s.contact?.includes(
+                                      supplierSearchText || "",
+                                    ),
                                 ).length === 0 && (
                                   <tr>
-                                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                                    <td
+                                      colSpan={6}
+                                      className="px-4 py-8 text-center text-gray-500"
+                                    >
                                       暂无供应商，请点击右上角添加
                                     </td>
                                   </tr>
@@ -2729,33 +3933,59 @@ const App = () => {
                     </>
                   )}
 
-                  {tab === "out" && (
+                  {tab === "out" && outSubTab === "records" && (
                     <div className="space-y-4">
                       {/* 销售统计卡片 */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-4">
                           <div className="flex items-center gap-2">
-                            <ArrowDownRight size={18} className="text-orange-600" />
-                            <span className="text-sm text-orange-600 font-medium">销售总笔数</span>
+                            <ArrowDownRight
+                              size={18}
+                              className="text-orange-600"
+                            />
+                            <span className="text-sm text-orange-600 font-medium">
+                              销售总笔数
+                            </span>
                           </div>
-                          <p className="text-2xl font-bold text-gray-800 mt-1">{outRecords.length} 笔</p>
+                          <p className="text-2xl font-bold text-gray-800 mt-1">
+                            {outRecords.length} 笔
+                          </p>
                         </div>
                         <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-4">
                           <div className="flex items-center gap-2">
-                            <CheckCircle2 size={18} className="text-green-600" />
-                            <span className="text-sm text-green-600 font-medium">已付款</span>
+                            <CheckCircle2
+                              size={18}
+                              className="text-green-600"
+                            />
+                            <span className="text-sm text-green-600 font-medium">
+                              已付款
+                            </span>
                           </div>
                           <p className="text-2xl font-bold text-gray-800 mt-1">
-                            {outRecords.filter((r) => r.paymentStatus === "paid").length} 笔
+                            {
+                              outRecords.filter(
+                                (r) => r.paymentStatus === "paid",
+                              ).length
+                            }{" "}
+                            笔
                           </p>
                         </div>
                         <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-xl p-4">
                           <div className="flex items-center gap-2">
                             <XCircle size={18} className="text-red-600" />
-                            <span className="text-sm text-red-600 font-medium">未付款</span>
+                            <span className="text-sm text-red-600 font-medium">
+                              未付款
+                            </span>
                           </div>
                           <p className="text-2xl font-bold text-gray-800 mt-1">
-                            {outRecords.filter((r) => r.paymentStatus === "unpaid" || !r.paymentStatus).length} 笔
+                            {
+                              outRecords.filter(
+                                (r) =>
+                                  r.paymentStatus === "unpaid" ||
+                                  !r.paymentStatus,
+                              ).length
+                            }{" "}
+                            笔
                           </p>
                         </div>
                       </div>
@@ -2765,7 +3995,9 @@ const App = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <Search size={16} className="text-gray-400" />
-                            <span className="text-sm font-medium text-gray-700">筛选条件</span>
+                            <span className="text-sm font-medium text-gray-700">
+                              筛选条件
+                            </span>
                             {activeOutFilterCount(outFilter) > 0 && (
                               <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
                                 {activeOutFilterCount(outFilter)} 个条件生效
@@ -2773,7 +4005,15 @@ const App = () => {
                             )}
                           </div>
                           <button
-                            onClick={() => setOutFilter({ customerName: "", paymentStatus: "all", productName: "", dateStart: "", dateEnd: "" })}
+                            onClick={() =>
+                              setOutFilter({
+                                customerName: "",
+                                paymentStatus: "all",
+                                productName: "",
+                                dateStart: "",
+                                dateEnd: "",
+                              })
+                            }
                             className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
                           >
                             <RefreshCw size={12} /> 重置筛选
@@ -2781,28 +4021,49 @@ const App = () => {
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                           <div className="relative">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <Search
+                              size={14}
+                              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                            />
                             <input
                               type="text"
                               placeholder="客户名称"
                               value={outFilter.customerName}
-                              onChange={(e) => setOutFilter({ ...outFilter, customerName: e.target.value })}
+                              onChange={(e) =>
+                                setOutFilter({
+                                  ...outFilter,
+                                  customerName: e.target.value,
+                                })
+                              }
                               className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
                             />
                           </div>
                           <div className="relative">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <Search
+                              size={14}
+                              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                            />
                             <input
                               type="text"
                               placeholder="商品名称"
                               value={outFilter.productName}
-                              onChange={(e) => setOutFilter({ ...outFilter, productName: e.target.value })}
+                              onChange={(e) =>
+                                setOutFilter({
+                                  ...outFilter,
+                                  productName: e.target.value,
+                                })
+                              }
                               className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
                             />
                           </div>
                           <select
                             value={outFilter.paymentStatus}
-                            onChange={(e) => setOutFilter({ ...outFilter, paymentStatus: e.target.value })}
+                            onChange={(e) =>
+                              setOutFilter({
+                                ...outFilter,
+                                paymentStatus: e.target.value,
+                              })
+                            }
                             className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
                           >
                             <option value="all">全部付款状态</option>
@@ -2812,14 +4073,24 @@ const App = () => {
                           <input
                             type="date"
                             value={outFilter.dateStart}
-                            onChange={(e) => setOutFilter({ ...outFilter, dateStart: e.target.value })}
+                            onChange={(e) =>
+                              setOutFilter({
+                                ...outFilter,
+                                dateStart: e.target.value,
+                              })
+                            }
                             className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
                             title="开始日期"
                           />
                           <input
                             type="date"
                             value={outFilter.dateEnd}
-                            onChange={(e) => setOutFilter({ ...outFilter, dateEnd: e.target.value })}
+                            onChange={(e) =>
+                              setOutFilter({
+                                ...outFilter,
+                                dateEnd: e.target.value,
+                              })
+                            }
                             className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
                             title="结束日期"
                           />
@@ -2832,9 +4103,15 @@ const App = () => {
                         return (
                           <div className="flex items-center justify-between text-xs text-gray-500">
                             <span>
-                              共 <span className="font-semibold text-gray-700">{filtered.length}</span> 条记录
+                              共{" "}
+                              <span className="font-semibold text-gray-700">
+                                {filtered.length}
+                              </span>{" "}
+                              条记录
                               {filtered.length !== outRecords.length && (
-                                <span className="ml-1">（已从 {outRecords.length} 条中筛选）</span>
+                                <span className="ml-1">
+                                  （已从 {outRecords.length} 条中筛选）
+                                </span>
                               )}
                             </span>
                           </div>
@@ -2845,40 +4122,83 @@ const App = () => {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="bg-gray-50 text-gray-600">
-                              <th className="px-4 py-3 text-left font-medium rounded-tl-lg">商品ID</th>
-                              <th className="px-4 py-3 text-left font-medium">商品名称</th>
-                              <th className="px-4 py-3 text-left font-medium">数量</th>
-                              <th className="px-4 py-3 text-left font-medium">单价</th>
-                              <th className="px-4 py-3 text-left font-medium">销售总金额</th>
-                              <th className="px-4 py-3 text-left font-medium">客户</th>
-                              <th className="px-4 py-3 text-left font-medium">付款状态</th>
-                              <th className="px-4 py-3 text-left font-medium">备注</th>
-                              <th className="px-4 py-3 text-left font-medium rounded-tr-lg">时间</th>
+                              <th className="px-4 py-3 text-left font-medium rounded-tl-lg">
+                                商品ID
+                              </th>
+                              <th className="px-4 py-3 text-left font-medium">
+                                商品名称
+                              </th>
+                              <th className="px-4 py-3 text-left font-medium">
+                                数量
+                              </th>
+                              <th className="px-4 py-3 text-left font-medium">
+                                单价
+                              </th>
+                              <th className="px-4 py-3 text-left font-medium">
+                                销售总金额
+                              </th>
+                              <th className="px-4 py-3 text-left font-medium">
+                                客户
+                              </th>
+                              <th className="px-4 py-3 text-left font-medium">
+                                付款状态
+                              </th>
+                              <th className="px-4 py-3 text-left font-medium">
+                                备注
+                              </th>
+                              <th className="px-4 py-3 text-left font-medium">
+                                时间
+                              </th>
+                              <th className="px-4 py-3 text-left font-medium rounded-tr-lg">
+                                操作
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
                             {getFilteredOutRecords().map((r) => {
-                              const product = products.find((p) => p.id === r.productId);
-                              const productName = product?.name || r.productName || "未知商品";
+                              const product = products.find(
+                                (p) => p.id === r.productId,
+                              );
+                              const productName =
+                                product?.name || r.productName || "未知商品";
                               return (
-                                <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                  <td className="px-4 py-3 text-gray-500">{r.productId}</td>
+                                <tr
+                                  key={r.id}
+                                  className="border-b border-gray-100 hover:bg-gray-50"
+                                >
+                                  <td className="px-4 py-3 text-gray-500">
+                                    {r.productId}
+                                  </td>
                                   <td className="px-4 py-3 font-medium">
                                     <div className="flex items-center gap-2">
                                       <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
-                                        <Package size={12} className="text-blue-600" />
+                                        <Package
+                                          size={12}
+                                          className="text-blue-600"
+                                        />
                                       </div>
                                       {productName}
                                     </div>
                                   </td>
-                                  <td className="px-4 py-3 text-red-500 font-medium">-{Math.abs(r.quantity)}</td>
-                                  <td className="px-4 py-3 text-gray-600">¥{(r.unitPrice || 0).toFixed(2)}</td>
-                                  <td className="px-4 py-3 text-orange-600 font-medium">¥{(r.totalAmount || 0).toFixed(2)}</td>
+                                  <td className="px-4 py-3 text-red-500 font-medium">
+                                    -{Math.abs(r.quantity)}
+                                  </td>
+                                  <td className="px-4 py-3 text-gray-600">
+                                    ¥{(r.unitPrice || 0).toFixed(2)}
+                                  </td>
+                                  <td className="px-4 py-3 text-orange-600 font-medium">
+                                    ¥{(r.totalAmount || 0).toFixed(2)}
+                                  </td>
                                   <td className="px-4 py-3">
                                     {r.recipientName ? (
                                       <div className="flex items-center gap-1.5">
-                                        <User size={14} className="text-blue-500" />
-                                        <span className="text-gray-700">{r.recipientName}</span>
+                                        <User
+                                          size={14}
+                                          className="text-blue-500"
+                                        />
+                                        <span className="text-gray-700">
+                                          {r.recipientName}
+                                        </span>
                                       </div>
                                     ) : (
                                       <span className="text-gray-400">-</span>
@@ -2894,21 +4214,45 @@ const App = () => {
                                       }`}
                                     >
                                       {r.paymentStatus === "paid" ? (
-                                        <><CheckCircle2 size={12} />已付款</>
+                                        <>
+                                          <CheckCircle2 size={12} />
+                                          已付款
+                                        </>
                                       ) : (
-                                        <><XCircle size={12} />未付款</>
+                                        <>
+                                          <XCircle size={12} />
+                                          未付款
+                                        </>
                                       )}
                                     </button>
                                   </td>
-                                  <td className="px-4 py-3 text-gray-500">{r.remark || "-"}</td>
-                                  <td className="px-4 py-3 text-gray-400">{r.time}</td>
+                                  <td className="px-4 py-3 text-gray-500">
+                                    {r.remark || "-"}
+                                  </td>
+                                  <td className="px-4 py-3 text-gray-400">
+                                    {r.time}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <button
+                                      onClick={() => openReturnModal(r)}
+                                      className="p-1.5 text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"
+                                      title="退货"
+                                    >
+                                      <RefreshCw size={14} />
+                                    </button>
+                                  </td>
                                 </tr>
                               );
                             })}
                             {getFilteredOutRecords().length === 0 && (
                               <tr>
-                                <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
-                                  {outRecords.length > 0 ? "没有匹配的销售记录，请调整筛选条件" : "暂无销售记录"}
+                                <td
+                                  colSpan={9}
+                                  className="px-4 py-8 text-center text-gray-500"
+                                >
+                                  {outRecords.length > 0
+                                    ? "没有匹配的销售记录，请调整筛选条件"
+                                    : "暂无销售记录"}
                                 </td>
                               </tr>
                             )}
@@ -2923,6 +4267,135 @@ const App = () => {
           </div>
         </div>
       </main>
+
+      {/* 退货申请弹窗 */}
+      {showReturnModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-800">退货申请</h3>
+              <button
+                onClick={() => setShowReturnModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={18} className="text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText size={16} className="text-blue-600" />
+                  <span className="text-sm font-medium text-blue-700">关联销售信息</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-gray-500">销售单号：</span>
+                    <span className="font-medium text-gray-800">OUT-{returnForm.outRecordId}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">商品：</span>
+                    <span className="font-medium text-gray-800">
+                      {products.find((p) => p.id === returnForm.productId)?.name || "未知商品"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">退货数量 <span className="text-red-500">*</span></label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={returnForm.quantity}
+                    onChange={(e) => {
+                      const q = parseInt(e.target.value) || 0;
+                      const ua = parseFloat(returnForm.unitPrice) || 0;
+                      setReturnForm({ ...returnForm, quantity: e.target.value, refundAmount: q * ua });
+                    }}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">单价</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={returnForm.unitPrice}
+                    onChange={(e) => {
+                      const ua = parseFloat(e.target.value) || 0;
+                      const q = parseInt(returnForm.quantity) || 0;
+                      setReturnForm({ ...returnForm, unitPrice: e.target.value, refundAmount: q * ua });
+                    }}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">退款金额 <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">¥</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={returnForm.refundAmount}
+                    onChange={(e) => setReturnForm({ ...returnForm, refundAmount: e.target.value })}
+                    className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">退货原因 <span className="text-red-500">*</span></label>
+                <textarea
+                  rows={3}
+                  value={returnForm.reason}
+                  onChange={(e) => setReturnForm({ ...returnForm, reason: e.target.value })}
+                  placeholder="请详细描述退货原因..."
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">客户名称</label>
+                <input
+                  type="text"
+                  value={returnForm.recipientName}
+                  onChange={(e) => setReturnForm({ ...returnForm, recipientName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                <input
+                  type="text"
+                  value={returnForm.remark}
+                  onChange={(e) => setReturnForm({ ...returnForm, remark: e.target.value })}
+                  placeholder="可选备注信息"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+              <button
+                onClick={() => setShowReturnModal(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={submitReturn}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 transition-colors flex items-center gap-2"
+              >
+                <RefreshCw size={14} /> 提交退货申请
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 客户管理弹窗 */}
       {showCustomerModal && (
@@ -2949,7 +4422,9 @@ const App = () => {
                 </label>
                 <input
                   value={customerForm.name}
-                  onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
+                  onChange={(e) =>
+                    setCustomerForm({ ...customerForm, name: e.target.value })
+                  }
                   placeholder="请输入客户名称"
                   disabled={customerModalMode === "view"}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-50 disabled:text-gray-500"
@@ -2957,7 +4432,9 @@ const App = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">手机号</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  手机号
+                </label>
                 <input
                   type="tel"
                   value={customerForm.phone}
@@ -2969,13 +4446,19 @@ const App = () => {
                   disabled={customerModalMode === "view"}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-50 disabled:text-gray-500"
                 />
-                {customerForm.phone && customerForm.phone.length !== 11 && customerModalMode !== "view" && (
-                  <p className="text-xs text-red-500 mt-1">请输入11位手机号</p>
-                )}
+                {customerForm.phone &&
+                  customerForm.phone.length !== 11 &&
+                  customerModalMode !== "view" && (
+                    <p className="text-xs text-red-500 mt-1">
+                      请输入11位手机号
+                    </p>
+                  )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">欠款金额</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  欠款金额
+                </label>
                 <input
                   type="number"
                   step="0.01"
@@ -2984,54 +4467,87 @@ const App = () => {
                   placeholder="0.00"
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
                 />
-                <p className="text-xs text-gray-400 mt-1">由销售和收款记录自动计算</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  由销售和收款记录自动计算
+                </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">客户分类</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  客户分类
+                </label>
                 <select
                   value={customerForm.category}
-                  onChange={(e) => setCustomerForm({ ...customerForm, category: e.target.value })}
+                  onChange={(e) =>
+                    setCustomerForm({
+                      ...customerForm,
+                      category: e.target.value,
+                    })
+                  }
                   disabled={customerModalMode === "view"}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-50 disabled:text-gray-500"
                 >
                   {customerCategories.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">来源方式</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  来源方式
+                </label>
                 <select
                   value={customerForm.source}
-                  onChange={(e) => setCustomerForm({ ...customerForm, source: e.target.value })}
+                  onChange={(e) =>
+                    setCustomerForm({ ...customerForm, source: e.target.value })
+                  }
                   disabled={customerModalMode === "view"}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-50 disabled:text-gray-500"
                 >
                   {customerSources.map((src) => (
-                    <option key={src} value={src}>{src}</option>
+                    <option key={src} value={src}>
+                      {src}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">上次购买日期</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  上次购买日期
+                </label>
                 <input
                   type="date"
                   value={customerForm.lastPurchaseDate || ""}
-                  onChange={(e) => setCustomerForm({ ...customerForm, lastPurchaseDate: e.target.value })}
+                  onChange={(e) =>
+                    setCustomerForm({
+                      ...customerForm,
+                      lastPurchaseDate: e.target.value,
+                    })
+                  }
                   disabled={customerModalMode === "view"}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-50 disabled:text-gray-500"
                 />
-                <p className="text-xs text-gray-400 mt-1">留空则自动读取销售记录</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  留空则自动读取销售记录
+                </p>
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">客户地址</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  客户地址
+                </label>
                 <textarea
                   value={customerForm.address}
-                  onChange={(e) => setCustomerForm({ ...customerForm, address: e.target.value })}
+                  onChange={(e) =>
+                    setCustomerForm({
+                      ...customerForm,
+                      address: e.target.value,
+                    })
+                  }
                   placeholder="请输入客户地址"
                   rows={3}
                   disabled={customerModalMode === "view"}
@@ -3054,7 +4570,10 @@ const App = () => {
                       alert("客户名称为必填项");
                       return;
                     }
-                    if (customerForm.phone && customerForm.phone.length !== 11) {
+                    if (
+                      customerForm.phone &&
+                      customerForm.phone.length !== 11
+                    ) {
                       alert("请输入正确的11位手机号");
                       return;
                     }
@@ -3069,11 +4588,21 @@ const App = () => {
                       updated = [...customers, newCustomer];
                     } else {
                       updated = customers.map((c) =>
-                        c.id === customerForm.id ? { ...customerForm, debt: c.debt, lastPurchaseDate: customerForm.lastPurchaseDate || "" } : c,
+                        c.id === customerForm.id
+                          ? {
+                              ...customerForm,
+                              debt: c.debt,
+                              lastPurchaseDate:
+                                customerForm.lastPurchaseDate || "",
+                            }
+                          : c,
                       );
                     }
                     setCustomers(updated);
-                    localStorage.setItem("inventory_customers", JSON.stringify(updated));
+                    localStorage.setItem(
+                      "inventory_customers",
+                      JSON.stringify(updated),
+                    );
                     setShowCustomerModal(false);
                     loadFinanceData(updated, outRecords, paymentRecords);
                   }}
@@ -3109,7 +4638,7 @@ const App = () => {
             >
               <X size={20} />
             </button>
-            
+
             <h4 className="text-lg font-semibold text-gray-900 mb-4">
               客户对账详情 - {selectedCustomerDetail.customerName}
             </h4>
@@ -3119,19 +4648,27 @@ const App = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <p className="text-xs text-gray-500">客户名称</p>
-                  <p className="font-medium text-gray-800">{selectedCustomerDetail.customerName}</p>
+                  <p className="font-medium text-gray-800">
+                    {selectedCustomerDetail.customerName}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">联系电话</p>
-                  <p className="font-medium text-gray-800">{selectedCustomerDetail.customerPhone}</p>
+                  <p className="font-medium text-gray-800">
+                    {selectedCustomerDetail.customerPhone}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">客户分类</p>
-                  <p className="font-medium text-gray-800">{selectedCustomerDetail.category}</p>
+                  <p className="font-medium text-gray-800">
+                    {selectedCustomerDetail.category}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">交易笔数</p>
-                  <p className="font-medium text-gray-800">{selectedCustomerDetail.transactionCount} 笔</p>
+                  <p className="font-medium text-gray-800">
+                    {selectedCustomerDetail.transactionCount} 笔
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">上次购买</p>
@@ -3146,15 +4683,21 @@ const App = () => {
             <div className="grid grid-cols-3 gap-4 mb-4">
               <div className="bg-blue-50 rounded-lg p-3 text-center">
                 <p className="text-xs text-blue-600">交易总额</p>
-                <p className="text-lg font-bold text-gray-800">¥{selectedCustomerDetail.totalAmount.toFixed(2)}</p>
+                <p className="text-lg font-bold text-gray-800">
+                  ¥{selectedCustomerDetail.totalAmount.toFixed(2)}
+                </p>
               </div>
               <div className="bg-green-50 rounded-lg p-3 text-center">
                 <p className="text-xs text-green-600">已付金额</p>
-                <p className="text-lg font-bold text-gray-800">¥{selectedCustomerDetail.paidAmount.toFixed(2)}</p>
+                <p className="text-lg font-bold text-gray-800">
+                  ¥{selectedCustomerDetail.paidAmount.toFixed(2)}
+                </p>
               </div>
               <div className="bg-red-50 rounded-lg p-3 text-center">
                 <p className="text-xs text-red-600">未付金额</p>
-                <p className="text-lg font-bold text-gray-800">¥{selectedCustomerDetail.unpaidAmount.toFixed(2)}</p>
+                <p className="text-lg font-bold text-gray-800">
+                  ¥{selectedCustomerDetail.unpaidAmount.toFixed(2)}
+                </p>
               </div>
             </div>
 
@@ -3164,7 +4707,13 @@ const App = () => {
                 <h5 className="font-medium text-gray-800">收款记录</h5>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500">
-                    共 {paymentRecords.filter((p) => p.customerId === selectedCustomerDetail.id).length} 笔
+                    共{" "}
+                    {
+                      paymentRecords.filter(
+                        (p) => p.customerId === selectedCustomerDetail.id,
+                      ).length
+                    }{" "}
+                    笔
                   </span>
                   {selectedCustomerDetail.unpaidAmount > 0 && (
                     <button
@@ -3185,12 +4734,22 @@ const App = () => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 text-gray-600">
-                      <th className="px-3 py-2 text-left font-medium">收款日期</th>
-                      <th className="px-3 py-2 text-right font-medium">收款金额</th>
+                      <th className="px-3 py-2 text-left font-medium">
+                        收款日期
+                      </th>
+                      <th className="px-3 py-2 text-right font-medium">
+                        收款金额
+                      </th>
                       <th className="px-3 py-2 text-right font-medium">优惠</th>
-                      <th className="px-3 py-2 text-right font-medium">实际应收</th>
-                      <th className="px-3 py-2 text-left font-medium">支付方式</th>
-                      <th className="px-3 py-2 text-left font-medium">流水号</th>
+                      <th className="px-3 py-2 text-right font-medium">
+                        实际应收
+                      </th>
+                      <th className="px-3 py-2 text-left font-medium">
+                        支付方式
+                      </th>
+                      <th className="px-3 py-2 text-left font-medium">
+                        流水号
+                      </th>
                       <th className="px-3 py-2 text-left font-medium">备注</th>
                       <th className="px-3 py-2 text-right font-medium">操作</th>
                     </tr>
@@ -3198,13 +4757,21 @@ const App = () => {
                   <tbody>
                     {paymentRecords
                       .filter((p) => p.customerId === selectedCustomerDetail.id)
-                      .sort((a, b) => new Date(b.businessTime) - new Date(a.businessTime))
+                      .sort(
+                        (a, b) =>
+                          new Date(b.businessTime) - new Date(a.businessTime),
+                      )
                       .map((payment) => (
-                        <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <tr
+                          key={payment.id}
+                          className="border-b border-gray-100 hover:bg-gray-50"
+                        >
                           <td className="px-3 py-2 text-gray-600 text-xs">
                             {formatTime(payment.businessTime)}
                           </td>
-                          <td className="px-3 py-2 text-right font-medium">¥{payment.amount.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right font-medium">
+                            ¥{payment.amount.toFixed(2)}
+                          </td>
                           <td className="px-3 py-2 text-right text-orange-600">
                             ¥{payment.discount?.toFixed(2) || "0.00"}
                           </td>
@@ -3212,17 +4779,19 @@ const App = () => {
                             ¥{payment.actualAmount.toFixed(2)}
                           </td>
                           <td className="px-3 py-2">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
-                              payment.paymentMethod === "cash"
-                                ? "bg-green-100 text-green-700"
-                                : payment.paymentMethod === "bank"
-                                ? "bg-blue-100 text-blue-700"
-                                : payment.paymentMethod === "wechat"
-                                ? "bg-emerald-100 text-emerald-700"
-                                : payment.paymentMethod === "alipay"
-                                ? "bg-cyan-100 text-cyan-700"
-                                : "bg-gray-100 text-gray-700"
-                            }`}>
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
+                                payment.paymentMethod === "cash"
+                                  ? "bg-green-100 text-green-700"
+                                  : payment.paymentMethod === "bank"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : payment.paymentMethod === "wechat"
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : payment.paymentMethod === "alipay"
+                                        ? "bg-cyan-100 text-cyan-700"
+                                        : "bg-gray-100 text-gray-700"
+                              }`}
+                            >
                               {payment.paymentMethod === "cash" && "现金"}
                               {payment.paymentMethod === "bank" && "银行"}
                               {payment.paymentMethod === "wechat" && "微信"}
@@ -3256,9 +4825,14 @@ const App = () => {
                           </td>
                         </tr>
                       ))}
-                    {paymentRecords.filter((p) => p.customerId === selectedCustomerDetail.id).length === 0 && (
+                    {paymentRecords.filter(
+                      (p) => p.customerId === selectedCustomerDetail.id,
+                    ).length === 0 && (
                       <tr>
-                        <td colSpan={8} className="px-3 py-4 text-center text-gray-500">
+                        <td
+                          colSpan={8}
+                          className="px-3 py-4 text-center text-gray-500"
+                        >
                           暂无收款记录
                         </td>
                       </tr>
@@ -3279,37 +4853,66 @@ const App = () => {
                       <th className="px-3 py-2 text-right font-medium">数量</th>
                       <th className="px-3 py-2 text-right font-medium">单价</th>
                       <th className="px-3 py-2 text-right font-medium">金额</th>
-                      <th className="px-3 py-2 text-left font-medium">付款状态</th>
+                      <th className="px-3 py-2 text-left font-medium">
+                        付款状态
+                      </th>
                       <th className="px-3 py-2 text-left font-medium">时间</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedCustomerDetail.records?.map((record) => {
-                      const product = products.find((p) => p.id === record.productId);
+                      const product = products.find(
+                        (p) => p.id === record.productId,
+                      );
                       const unitPrice = record.unitPrice || product?.price || 0;
-                      const amount = record.totalAmount || (product ? product.price * Math.abs(record.quantity) : 0);
+                      const amount =
+                        record.totalAmount ||
+                        (product
+                          ? product.price * Math.abs(record.quantity)
+                          : 0);
                       return (
-                        <tr key={record.id} className="border-b border-gray-100">
-                          <td className="px-3 py-2">{record.productName || product?.name || "未知商品"}</td>
-                          <td className="px-3 py-2 text-right">{Math.abs(record.quantity)}</td>
-                          <td className="px-3 py-2 text-right">¥{unitPrice.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-right font-medium">¥{amount.toFixed(2)}</td>
+                        <tr
+                          key={record.id}
+                          className="border-b border-gray-100"
+                        >
                           <td className="px-3 py-2">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
-                              record.paymentStatus === "paid"
-                                ? "bg-green-100 text-green-700"
-                                : "bg-red-100 text-red-700"
-                            }`}>
-                              {record.paymentStatus === "paid" ? "已付款" : "未付款"}
+                            {record.productName || product?.name || "未知商品"}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {Math.abs(record.quantity)}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            ¥{unitPrice.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2 text-right font-medium">
+                            ¥{amount.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
+                                record.paymentStatus === "paid"
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {record.paymentStatus === "paid"
+                                ? "已付款"
+                                : "未付款"}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-gray-500 text-xs">{formatTime(record.time || record.createTime)}</td>
+                          <td className="px-3 py-2 text-gray-500 text-xs">
+                            {formatTime(record.time || record.createTime)}
+                          </td>
                         </tr>
                       );
                     })}
-                    {(!selectedCustomerDetail.records || selectedCustomerDetail.records.length === 0) && (
+                    {(!selectedCustomerDetail.records ||
+                      selectedCustomerDetail.records.length === 0) && (
                       <tr>
-                        <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
+                        <td
+                          colSpan={6}
+                          className="px-3 py-4 text-center text-gray-500"
+                        >
                           暂无交易记录
                         </td>
                       </tr>
@@ -3354,10 +4957,9 @@ const App = () => {
                 <div>
                   <h4 className="text-lg font-bold text-gray-900">收款记录</h4>
                   <p className="text-xs text-gray-500">
-                    {selectedCustomerPayments.length > 0 
+                    {selectedCustomerPayments.length > 0
                       ? `${selectedCustomerPayments[0]?.customerName} - 共 ${selectedCustomerPayments.length} 笔收款`
-                      : "暂无收款记录"
-                    }
+                      : "暂无收款记录"}
                   </p>
                 </div>
               </div>
@@ -3379,14 +4981,30 @@ const App = () => {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-gray-50 text-gray-600">
-                        <th className="px-4 py-3 text-left font-medium">收款日期</th>
-                        <th className="px-4 py-3 text-right font-medium">收款金额</th>
-                        <th className="px-4 py-3 text-right font-medium">优惠金额</th>
-                        <th className="px-4 py-3 text-right font-medium">实际应收</th>
-                        <th className="px-4 py-3 text-left font-medium">支付方式</th>
-                        <th className="px-4 py-3 text-left font-medium">交易流水号</th>
-                        <th className="px-4 py-3 text-left font-medium">备注</th>
-                        <th className="px-4 py-3 text-right font-medium">操作</th>
+                        <th className="px-4 py-3 text-left font-medium">
+                          收款日期
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium">
+                          收款金额
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium">
+                          优惠金额
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium">
+                          实际应收
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium">
+                          支付方式
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium">
+                          交易流水号
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium">
+                          备注
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium">
+                          操作
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -3405,21 +5023,26 @@ const App = () => {
                             ¥{payment.actualAmount.toFixed(2)}
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
-                              payment.paymentMethod === "cash"
-                                ? "bg-green-100 text-green-700"
-                                : payment.paymentMethod === "bank"
-                                ? "bg-blue-100 text-blue-700"
-                                : payment.paymentMethod === "wechat"
-                                ? "bg-emerald-100 text-emerald-700"
-                                : payment.paymentMethod === "alipay"
-                                ? "bg-cyan-100 text-cyan-700"
-                                : "bg-gray-100 text-gray-700"
-                            }`}>
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
+                                payment.paymentMethod === "cash"
+                                  ? "bg-green-100 text-green-700"
+                                  : payment.paymentMethod === "bank"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : payment.paymentMethod === "wechat"
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : payment.paymentMethod === "alipay"
+                                        ? "bg-cyan-100 text-cyan-700"
+                                        : "bg-gray-100 text-gray-700"
+                              }`}
+                            >
                               {payment.paymentMethod === "cash" && "💵 现金"}
-                              {payment.paymentMethod === "bank" && "🏦 银行转账"}
-                              {payment.paymentMethod === "wechat" && "💚 微信支付"}
-                              {payment.paymentMethod === "alipay" && "🔵 支付宝"}
+                              {payment.paymentMethod === "bank" &&
+                                "🏦 银行转账"}
+                              {payment.paymentMethod === "wechat" &&
+                                "💚 微信支付"}
+                              {payment.paymentMethod === "alipay" &&
+                                "🔵 支付宝"}
                               {payment.paymentMethod === "other" && "📝 其他"}
                             </span>
                           </td>
@@ -3470,24 +5093,35 @@ const App = () => {
                   <div className="flex items-center gap-6">
                     <div>
                       <p className="text-xs text-gray-500">收款笔数</p>
-                      <p className="text-lg font-bold text-gray-800">{selectedCustomerPayments.length} 笔</p>
+                      <p className="text-lg font-bold text-gray-800">
+                        {selectedCustomerPayments.length} 笔
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">收款总额</p>
                       <p className="text-lg font-bold text-green-600">
-                        ¥{selectedCustomerPayments.reduce((sum, p) => sum + p.amount, 0).toFixed(2)}
+                        ¥
+                        {selectedCustomerPayments
+                          .reduce((sum, p) => sum + p.amount, 0)
+                          .toFixed(2)}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">优惠总额</p>
                       <p className="text-lg font-bold text-orange-600">
-                        ¥{selectedCustomerPayments.reduce((sum, p) => sum + (p.discount || 0), 0).toFixed(2)}
+                        ¥
+                        {selectedCustomerPayments
+                          .reduce((sum, p) => sum + (p.discount || 0), 0)
+                          .toFixed(2)}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">实际应收总额</p>
                       <p className="text-lg font-bold text-blue-600">
-                        ¥{selectedCustomerPayments.reduce((sum, p) => sum + p.actualAmount, 0).toFixed(2)}
+                        ¥
+                        {selectedCustomerPayments
+                          .reduce((sum, p) => sum + p.actualAmount, 0)
+                          .toFixed(2)}
                       </p>
                     </div>
                   </div>
@@ -3518,8 +5152,12 @@ const App = () => {
                   <Edit3 size={20} className="text-blue-600" />
                 </div>
                 <div>
-                  <h4 className="text-lg font-bold text-gray-900">编辑收款记录</h4>
-                  <p className="text-xs text-gray-500">{editPaymentForm.customerName}</p>
+                  <h4 className="text-lg font-bold text-gray-900">
+                    编辑收款记录
+                  </h4>
+                  <p className="text-xs text-gray-500">
+                    {editPaymentForm.customerName}
+                  </p>
                 </div>
               </div>
               <button
@@ -3542,29 +5180,44 @@ const App = () => {
                     收款金额 <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">
+                      ¥
+                    </span>
                     <input
                       type="number"
                       step="0.01"
                       min="0.01"
                       value={editPaymentForm.amount}
-                      onChange={(e) => setEditPaymentForm({ ...editPaymentForm, amount: e.target.value })}
+                      onChange={(e) =>
+                        setEditPaymentForm({
+                          ...editPaymentForm,
+                          amount: e.target.value,
+                        })
+                      }
                       className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
                     />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    优惠金额 <span className="text-gray-400 font-normal">(选填)</span>
+                    优惠金额{" "}
+                    <span className="text-gray-400 font-normal">(选填)</span>
                   </label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">
+                      ¥
+                    </span>
                     <input
                       type="number"
                       step="0.01"
                       min="0"
                       value={editPaymentForm.discount || "0"}
-                      onChange={(e) => setEditPaymentForm({ ...editPaymentForm, discount: e.target.value })}
+                      onChange={(e) =>
+                        setEditPaymentForm({
+                          ...editPaymentForm,
+                          discount: e.target.value,
+                        })
+                      }
                       className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
                     />
                   </div>
@@ -3578,7 +5231,12 @@ const App = () => {
                 </label>
                 <select
                   value={editPaymentForm.paymentMethod || "cash"}
-                  onChange={(e) => setEditPaymentForm({ ...editPaymentForm, paymentMethod: e.target.value })}
+                  onChange={(e) =>
+                    setEditPaymentForm({
+                      ...editPaymentForm,
+                      paymentMethod: e.target.value,
+                    })
+                  }
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
                 >
                   <option value="cash">💵 现金</option>
@@ -3597,7 +5255,12 @@ const App = () => {
                 <input
                   type="datetime-local"
                   value={editPaymentForm.businessTime}
-                  onChange={(e) => setEditPaymentForm({ ...editPaymentForm, businessTime: e.target.value })}
+                  onChange={(e) =>
+                    setEditPaymentForm({
+                      ...editPaymentForm,
+                      businessTime: e.target.value,
+                    })
+                  }
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
                 />
               </div>
@@ -3609,7 +5272,12 @@ const App = () => {
                 </label>
                 <textarea
                   value={editPaymentForm.remark || ""}
-                  onChange={(e) => setEditPaymentForm({ ...editPaymentForm, remark: e.target.value })}
+                  onChange={(e) =>
+                    setEditPaymentForm({
+                      ...editPaymentForm,
+                      remark: e.target.value,
+                    })
+                  }
                   placeholder="请输入备注信息"
                   rows={3}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all resize-none"
@@ -3698,7 +5366,9 @@ const App = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">品牌</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                品牌
+              </label>
               <select
                 value={pbrand}
                 onChange={(e) => setPbrand(e.target.value)}
@@ -3706,24 +5376,32 @@ const App = () => {
               >
                 <option value="">请选择品牌</option>
                 {brands.map((b) => (
-                  <option key={b} value={b}>{b}</option>
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">商品分类</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                商品分类
+              </label>
               <select
                 value={pcategory}
                 onChange={(e) => setPcategory(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
                 {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">单位</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                单位
+              </label>
               <select
                 value={punit}
                 onChange={(e) => setPunit(e.target.value)}
@@ -3731,7 +5409,9 @@ const App = () => {
               >
                 <option value="">请选择单位</option>
                 {units.map((u) => (
-                  <option key={u} value={u}>{u}</option>
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
                 ))}
               </select>
             </div>
@@ -3765,22 +5445,32 @@ const App = () => {
             >
               <X size={20} />
             </button>
-            <h4 className="text-lg font-semibold text-gray-900">编辑采购记录</h4>
+            <h4 className="text-lg font-semibold text-gray-900">
+              编辑采购记录
+            </h4>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">采购数量</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                采购数量
+              </label>
               <input
                 type="number"
                 min="1"
                 value={editInForm.quantity}
-                onChange={(e) => setEditInForm({ ...editInForm, quantity: e.target.value })}
+                onChange={(e) =>
+                  setEditInForm({ ...editInForm, quantity: e.target.value })
+                }
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">单据类型</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                单据类型
+              </label>
               <select
                 value={editInForm.docType}
-                onChange={(e) => setEditInForm({ ...editInForm, docType: e.target.value })}
+                onChange={(e) =>
+                  setEditInForm({ ...editInForm, docType: e.target.value })
+                }
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
                 <option value="purchase">采购入库单</option>
@@ -3790,23 +5480,33 @@ const App = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">供应商</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                供应商
+              </label>
               <select
                 value={editInForm.supplierName}
-                onChange={(e) => setEditInForm({ ...editInForm, supplierName: e.target.value })}
+                onChange={(e) =>
+                  setEditInForm({ ...editInForm, supplierName: e.target.value })
+                }
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
                 <option value="">请选择供应商</option>
                 {suppliers.map((s) => (
-                  <option key={s.id} value={s.name}>{s.name}</option>
+                  <option key={s.id} value={s.name}>
+                    {s.name}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                备注
+              </label>
               <textarea
                 value={editInForm.remark}
-                onChange={(e) => setEditInForm({ ...editInForm, remark: e.target.value })}
+                onChange={(e) =>
+                  setEditInForm({ ...editInForm, remark: e.target.value })
+                }
                 placeholder="可选备注"
                 rows={3}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -3823,7 +5523,8 @@ const App = () => {
                 onClick={saveEditInRecord}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 flex items-center gap-2"
               >
-                <Edit3 size={16} />保存修改
+                <Edit3 size={16} />
+                保存修改
               </button>
             </div>
           </div>
@@ -3842,7 +5543,9 @@ const App = () => {
             </button>
             <h4 className="text-lg font-semibold text-gray-900">新增采购</h4>
             <div className="relative" ref={inDropdownRef}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">选择商品</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                选择商品
+              </label>
               <input
                 type="text"
                 value={inSearchText}
@@ -3868,31 +5571,42 @@ const App = () => {
                         }}
                         className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
                       >
-                        {p.name} <span className="text-gray-400 ml-2">ID: {p.id}</span>
+                        {p.name}{" "}
+                        <span className="text-gray-400 ml-2">ID: {p.id}</span>
                       </div>
                     ))
                   ) : (
-                    <div className="px-4 py-2 text-sm text-gray-500">无匹配商品</div>
+                    <div className="px-4 py-2 text-sm text-gray-500">
+                      无匹配商品
+                    </div>
                   )}
                 </div>
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">采购数量</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                采购数量
+              </label>
               <input
                 type="number"
                 min="1"
                 value={inForm.quantity}
-                onChange={(e) => setInForm({ ...inForm, quantity: e.target.value })}
+                onChange={(e) =>
+                  setInForm({ ...inForm, quantity: e.target.value })
+                }
                 placeholder="请输入采购数量"
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">单据类型</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                单据类型
+              </label>
               <select
                 value={inForm.docType || "purchase"}
-                onChange={(e) => setInForm({ ...inForm, docType: e.target.value })}
+                onChange={(e) =>
+                  setInForm({ ...inForm, docType: e.target.value })
+                }
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
                 <option value="purchase">采购入库单</option>
@@ -3902,23 +5616,33 @@ const App = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">供应商</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                供应商
+              </label>
               <select
                 value={inForm.supplierName || ""}
-                onChange={(e) => setInForm({ ...inForm, supplierName: e.target.value })}
+                onChange={(e) =>
+                  setInForm({ ...inForm, supplierName: e.target.value })
+                }
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
                 <option value="">请选择供应商</option>
                 {suppliers.map((s) => (
-                  <option key={s.id} value={s.name}>{s.name}</option>
+                  <option key={s.id} value={s.name}>
+                    {s.name}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                备注
+              </label>
               <textarea
                 value={inForm.remark}
-                onChange={(e) => setInForm({ ...inForm, remark: e.target.value })}
+                onChange={(e) =>
+                  setInForm({ ...inForm, remark: e.target.value })
+                }
                 placeholder="可选备注"
                 rows={3}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -3935,7 +5659,8 @@ const App = () => {
                 onClick={doIn}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 flex items-center gap-2"
               >
-                <ArrowUpRight size={16} />确认采购
+                <ArrowUpRight size={16} />
+                确认采购
               </button>
             </div>
           </div>
@@ -3969,23 +5694,36 @@ const App = () => {
                   {products
                     .filter((p) => p.stock === 0)
                     .map((p) => (
-                      <div key={p.id} className="flex items-center justify-between p-4 bg-red-50/50 border border-red-100 rounded-xl hover:bg-red-50 transition-colors">
+                      <div
+                        key={p.id}
+                        className="flex items-center justify-between p-4 bg-red-50/50 border border-red-100 rounded-xl hover:bg-red-50 transition-colors"
+                      >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
                             <Package size={18} className="text-red-500" />
                           </div>
                           <div>
-                            <p className="font-medium text-gray-800">{p.name}</p>
+                            <p className="font-medium text-gray-800">
+                              {p.name}
+                            </p>
                             <p className="text-xs text-gray-500 mt-0.5">
-                              {p.category && <span className="mr-2">{p.category}</span>}
-                              {p.brand && <span className="mr-2">{p.brand}</span>}
+                              {p.category && (
+                                <span className="mr-2">{p.category}</span>
+                              )}
+                              {p.brand && (
+                                <span className="mr-2">{p.brand}</span>
+                              )}
                               {p.unit && <span>{p.unit}</span>}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-medium text-gray-700">¥{p.price?.toFixed(2) || "0.00"}</p>
-                          <p className="text-xs text-red-500 font-medium">库存为0</p>
+                          <p className="text-sm font-medium text-gray-700">
+                            ¥{p.price?.toFixed(2) || "0.00"}
+                          </p>
+                          <p className="text-xs text-red-500 font-medium">
+                            库存为0
+                          </p>
                         </div>
                       </div>
                     ))}
@@ -3995,14 +5733,20 @@ const App = () => {
                   <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mb-3">
                     <Package size={32} className="text-green-400" />
                   </div>
-                  <p className="text-sm font-medium text-green-600">暂无缺货商品</p>
+                  <p className="text-sm font-medium text-green-600">
+                    暂无缺货商品
+                  </p>
                   <p className="text-xs text-gray-400 mt-1">所有商品库存充足</p>
                 </div>
               )}
             </div>
             <div className="px-6 py-3 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
               <p className="text-xs text-gray-500">
-                共 <span className="font-semibold text-red-600">{products.filter((p) => p.stock === 0).length}</span> 种缺货商品
+                共{" "}
+                <span className="font-semibold text-red-600">
+                  {products.filter((p) => p.stock === 0).length}
+                </span>{" "}
+                种缺货商品
               </p>
               <button
                 onClick={() => setShowOutOfStockModal(false)}
@@ -4026,8 +5770,12 @@ const App = () => {
                   <Clock size={20} className="text-blue-600" />
                 </div>
                 <div>
-                  <h4 className="text-lg font-bold text-gray-900">库存变动日志</h4>
-                  <p className="text-xs text-gray-500">记录所有库存采购与销售操作</p>
+                  <h4 className="text-lg font-bold text-gray-900">
+                    库存变动日志
+                  </h4>
+                  <p className="text-xs text-gray-500">
+                    记录所有库存采购与销售操作
+                  </p>
                 </div>
               </div>
               <button
@@ -4037,7 +5785,7 @@ const App = () => {
                 <X size={18} />
               </button>
             </div>
-            
+
             {/* 筛选条件 */}
             <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-100">
               <div className="flex flex-wrap items-center gap-3">
@@ -4047,9 +5795,12 @@ const App = () => {
                     value={logFilterType}
                     onChange={(e) => {
                       setLogFilterType(e.target.value);
-                      setStockLogs(getStockLogs({ 
-                        type: e.target.value === "all" ? null : e.target.value 
-                      }));
+                      setStockLogs(
+                        getStockLogs({
+                          type:
+                            e.target.value === "all" ? null : e.target.value,
+                        }),
+                      );
                     }}
                     className="text-sm bg-transparent border-none outline-none text-gray-700 cursor-pointer"
                   >
@@ -4058,7 +5809,7 @@ const App = () => {
                     <option value="out">📤 销售</option>
                   </select>
                 </div>
-                
+
                 <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-gray-200 shadow-sm">
                   <Calendar size={14} className="text-gray-400" />
                   <input
@@ -4077,7 +5828,7 @@ const App = () => {
                 </div>
 
                 <div className="flex-1" />
-                
+
                 <button
                   onClick={() => {
                     setLogFilterType("all");
@@ -4098,18 +5849,22 @@ const App = () => {
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-3 border border-blue-100">
                   <p className="text-xs text-blue-600 font-medium">总记录数</p>
-                  <p className="text-xl font-bold text-gray-800">{stockLogs.length}</p>
+                  <p className="text-xl font-bold text-gray-800">
+                    {stockLogs.length}
+                  </p>
                 </div>
                 <div className="bg-gradient-to-br from-green-50 to-green-100/50 rounded-xl p-3 border border-green-100">
                   <p className="text-xs text-green-600 font-medium">采购次数</p>
                   <p className="text-xl font-bold text-gray-800">
-                    {stockLogs.filter(l => l.type === "in").length}
+                    {stockLogs.filter((l) => l.type === "in").length}
                   </p>
                 </div>
                 <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 rounded-xl p-3 border border-orange-100">
-                  <p className="text-xs text-orange-600 font-medium">销售次数</p>
+                  <p className="text-xs text-orange-600 font-medium">
+                    销售次数
+                  </p>
                   <p className="text-xl font-bold text-gray-800">
-                    {stockLogs.filter(l => l.type === "out").length}
+                    {stockLogs.filter((l) => l.type === "out").length}
                   </p>
                 </div>
               </div>
@@ -4121,21 +5876,37 @@ const App = () => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50/80 text-gray-600 border-b border-gray-200">
-                      <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">时间</th>
-                      <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">类型</th>
-                      <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">商品</th>
-                      <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wider">数量</th>
-                      <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wider">变动前</th>
-                      <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wider">变动后</th>
-                      <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">操作人</th>
-                      <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">备注</th>
+                      <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
+                        时间
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
+                        类型
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
+                        商品
+                      </th>
+                      <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wider">
+                        数量
+                      </th>
+                      <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wider">
+                        变动前
+                      </th>
+                      <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wider">
+                        变动后
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
+                        操作人
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">
+                        备注
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {stockLogs.length > 0 ? (
                       stockLogs.map((log, index) => (
-                        <tr 
-                          key={log.id} 
+                        <tr
+                          key={log.id}
                           className={`hover:bg-blue-50/30 transition-colors duration-150 ${
                             index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
                           }`}
@@ -4147,15 +5918,23 @@ const App = () => {
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${
-                              log.type === "in"
-                                ? "bg-green-100 text-green-700 border border-green-200"
-                                : "bg-orange-100 text-orange-700 border border-orange-200"
-                            }`}>
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                                log.type === "in"
+                                  ? "bg-green-100 text-green-700 border border-green-200"
+                                  : "bg-orange-100 text-orange-700 border border-orange-200"
+                              }`}
+                            >
                               {log.type === "in" ? (
-                                <><ArrowUpRight size={12} />采购</>
+                                <>
+                                  <ArrowUpRight size={12} />
+                                  采购
+                                </>
                               ) : (
-                                <><ArrowDownRight size={12} />销售</>
+                                <>
+                                  <ArrowDownRight size={12} />
+                                  销售
+                                </>
                               )}
                             </span>
                           </td>
@@ -4164,24 +5943,37 @@ const App = () => {
                               <div className="w-6 h-6 bg-gray-100 rounded-lg flex items-center justify-center">
                                 <Package size={12} className="text-gray-500" />
                               </div>
-                              <span className="font-medium text-gray-800">{log.productName}</span>
+                              <span className="font-medium text-gray-800">
+                                {log.productName}
+                              </span>
                             </div>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <span className={`font-bold ${
-                              log.type === "in" ? "text-green-600" : "text-orange-600"
-                            }`}>
-                              {log.type === "in" ? "+" : "-"}{log.quantity}
+                            <span
+                              className={`font-bold ${
+                                log.type === "in"
+                                  ? "text-green-600"
+                                  : "text-orange-600"
+                              }`}
+                            >
+                              {log.type === "in" ? "+" : "-"}
+                              {log.quantity}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right text-gray-500">{log.beforeStock}</td>
+                          <td className="px-4 py-3 text-right text-gray-500">
+                            {log.beforeStock}
+                          </td>
                           <td className="px-4 py-3 text-right">
-                            <span className="font-bold text-gray-800">{log.afterStock}</span>
+                            <span className="font-bold text-gray-800">
+                              {log.afterStock}
+                            </span>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1.5">
                               <User size={12} className="text-gray-400" />
-                              <span className="text-gray-600">{log.operator}</span>
+                              <span className="text-gray-600">
+                                {log.operator}
+                              </span>
                             </div>
                           </td>
                           <td className="px-4 py-3 text-gray-500 text-xs max-w-[150px] truncate">
@@ -4197,7 +5989,9 @@ const App = () => {
                               <Clock size={32} className="text-gray-300" />
                             </div>
                             <p className="text-sm">暂无库存变动记录</p>
-                            <p className="text-xs">进行采购或销售操作后将显示在这里</p>
+                            <p className="text-xs">
+                              进行采购或销售操作后将显示在这里
+                            </p>
                           </div>
                         </td>
                       </tr>
@@ -4210,8 +6004,13 @@ const App = () => {
             {/* 底部操作栏 */}
             <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
               <p className="text-xs text-gray-500">
-                共 <span className="font-semibold text-gray-700">{stockLogs.length}</span> 条记录
-                {logFilterType !== "all" && ` · 已筛选: ${logFilterType === "in" ? "采购" : "出库"}`}
+                共{" "}
+                <span className="font-semibold text-gray-700">
+                  {stockLogs.length}
+                </span>{" "}
+                条记录
+                {logFilterType !== "all" &&
+                  ` · 已筛选: ${logFilterType === "in" ? "采购" : "出库"}`}
               </p>
               <button
                 onClick={() => setShowStockLogModal(false)}
@@ -4237,7 +6036,9 @@ const App = () => {
             </button>
             <h4 className="text-lg font-semibold text-gray-900">新增销售</h4>
             <div className="relative" ref={outDropdownRef}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">选择商品</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                选择商品
+              </label>
               <input
                 type="text"
                 value={outSearchText}
@@ -4257,23 +6058,33 @@ const App = () => {
                       <div
                         key={p.id}
                         onClick={() => {
-                          setOutForm({ ...outForm, productId: p.id.toString() });
+                          setOutForm({
+                            ...outForm,
+                            productId: p.id.toString(),
+                          });
                           setOutSearchText(`${p.name} (库存: ${p.stock})`);
                           setOutDropdownOpen(false);
                         }}
                         className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
                       >
-                        {p.name} <span className="text-gray-400 ml-2">库存: {p.stock}</span>
+                        {p.name}{" "}
+                        <span className="text-gray-400 ml-2">
+                          库存: {p.stock}
+                        </span>
                       </div>
                     ))
                   ) : (
-                    <div className="px-4 py-2 text-sm text-gray-500">无匹配商品</div>
+                    <div className="px-4 py-2 text-sm text-gray-500">
+                      无匹配商品
+                    </div>
                   )}
                 </div>
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">销售数量</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                销售数量
+              </label>
               <input
                 type="number"
                 min="1"
@@ -4293,7 +6104,9 @@ const App = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">单价</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                单价
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -4314,13 +6127,17 @@ const App = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">销售总金额</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                销售总金额
+              </label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 value={outForm.totalAmount}
-                onChange={(e) => setOutForm({ ...outForm, totalAmount: e.target.value })}
+                onChange={(e) =>
+                  setOutForm({ ...outForm, totalAmount: e.target.value })
+                }
                 placeholder="自动计算或手动输入"
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50"
               />
@@ -4338,7 +6155,11 @@ const App = () => {
                 value={recipientSearchText}
                 onChange={(e) => {
                   setRecipientSearchText(e.target.value);
-                  setOutForm({ ...outForm, recipientId: "", recipientName: "" });
+                  setOutForm({
+                    ...outForm,
+                    recipientId: "",
+                    recipientName: "",
+                  });
                   setRecipientDropdownOpen(true);
                 }}
                 onFocus={() => setRecipientDropdownOpen(true)}
@@ -4352,7 +6173,11 @@ const App = () => {
                       <div
                         key={c.id}
                         onClick={() => {
-                          setOutForm({ ...outForm, recipientId: c.id.toString(), recipientName: c.name });
+                          setOutForm({
+                            ...outForm,
+                            recipientId: c.id.toString(),
+                            recipientName: c.name,
+                          });
                           setRecipientSearchText(c.name);
                           setRecipientDropdownOpen(false);
                         }}
@@ -4360,7 +6185,9 @@ const App = () => {
                       >
                         <div className="flex items-center justify-between">
                           <span>{c.name}</span>
-                          <span className="text-gray-400 text-xs">{c.phone}</span>
+                          <span className="text-gray-400 text-xs">
+                            {c.phone}
+                          </span>
                         </div>
                       </div>
                     ))
@@ -4375,11 +6202,15 @@ const App = () => {
 
             {/* 付款状态 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">付款状态</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                付款状态
+              </label>
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setOutForm({ ...outForm, paymentStatus: "unpaid" })}
+                  onClick={() =>
+                    setOutForm({ ...outForm, paymentStatus: "unpaid" })
+                  }
                   className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 text-sm font-medium transition-colors ${
                     outForm.paymentStatus === "unpaid"
                       ? "border-red-400 bg-red-50 text-red-700"
@@ -4390,7 +6221,9 @@ const App = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setOutForm({ ...outForm, paymentStatus: "paid" })}
+                  onClick={() =>
+                    setOutForm({ ...outForm, paymentStatus: "paid" })
+                  }
                   className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 text-sm font-medium transition-colors ${
                     outForm.paymentStatus === "paid"
                       ? "border-green-400 bg-green-50 text-green-700"
@@ -4403,10 +6236,14 @@ const App = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                备注
+              </label>
               <textarea
                 value={outForm.remark}
-                onChange={(e) => setOutForm({ ...outForm, remark: e.target.value })}
+                onChange={(e) =>
+                  setOutForm({ ...outForm, remark: e.target.value })
+                }
                 placeholder="可选备注"
                 rows={3}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -4425,7 +6262,8 @@ const App = () => {
                 onClick={doOut}
                 className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700 flex items-center gap-2"
               >
-                <ArrowDownRight size={16} />确认销售
+                <ArrowDownRight size={16} />
+                确认销售
               </button>
             </div>
           </div>
@@ -4451,7 +6289,9 @@ const App = () => {
               </label>
               <input
                 value={supplierForm.name}
-                onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
+                onChange={(e) =>
+                  setSupplierForm({ ...supplierForm, name: e.target.value })
+                }
                 placeholder="请输入供应商名称"
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
@@ -4460,16 +6300,22 @@ const App = () => {
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">联系人</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                联系人
+              </label>
               <input
                 value={supplierForm.contact}
-                onChange={(e) => setSupplierForm({ ...supplierForm, contact: e.target.value })}
+                onChange={(e) =>
+                  setSupplierForm({ ...supplierForm, contact: e.target.value })
+                }
                 placeholder="请输入联系人姓名"
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">联系电话</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                联系电话
+              </label>
               <input
                 type="tel"
                 value={supplierForm.phone}
@@ -4482,20 +6328,28 @@ const App = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">地址</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                地址
+              </label>
               <textarea
                 value={supplierForm.address}
-                onChange={(e) => setSupplierForm({ ...supplierForm, address: e.target.value })}
+                onChange={(e) =>
+                  setSupplierForm({ ...supplierForm, address: e.target.value })
+                }
                 placeholder="请输入供应商地址"
                 rows={3}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                备注
+              </label>
               <textarea
                 value={supplierForm.remark}
-                onChange={(e) => setSupplierForm({ ...supplierForm, remark: e.target.value })}
+                onChange={(e) =>
+                  setSupplierForm({ ...supplierForm, remark: e.target.value })
+                }
                 placeholder="可选备注"
                 rows={2}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
@@ -4523,11 +6377,14 @@ const App = () => {
                     updated = [...suppliers, newSupplier];
                   } else {
                     updated = suppliers.map((s) =>
-                      s.id === supplierForm.id ? { ...supplierForm } : s
+                      s.id === supplierForm.id ? { ...supplierForm } : s,
                     );
                   }
                   setSuppliers(updated);
-                  localStorage.setItem("inventory_suppliers", JSON.stringify(updated));
+                  localStorage.setItem(
+                    "inventory_suppliers",
+                    JSON.stringify(updated),
+                  );
                   setShowSupplierModal(false);
                 }}
                 disabled={!supplierForm.name}
@@ -4546,7 +6403,8 @@ const App = () => {
 
 // 排序图标组件
 const SortIcon = ({ field, financeSortField, financeSortOrder }) => {
-  if (financeSortField !== field) return <SortAsc size={14} className="text-gray-300" />;
+  if (financeSortField !== field)
+    return <SortAsc size={14} className="text-gray-300" />;
   return financeSortOrder === "asc" ? (
     <SortAsc size={14} className="text-blue-600" />
   ) : (
@@ -4582,9 +6440,18 @@ const FinanceModule = ({
   openPaymentRecordsModal,
 }) => {
   // 对账汇总 - 计算关键指标
-  const totalReceivable = reconciliationData.reduce((sum, r) => sum + r.totalAmount, 0);
-  const totalPaid = reconciliationData.reduce((sum, r) => sum + r.paidAmount, 0);
-  const totalUnpaid = reconciliationData.reduce((sum, r) => sum + r.unpaidAmount, 0);
+  const totalReceivable = reconciliationData.reduce(
+    (sum, r) => sum + r.totalAmount,
+    0,
+  );
+  const totalPaid = reconciliationData.reduce(
+    (sum, r) => sum + r.paidAmount,
+    0,
+  );
+  const totalUnpaid = reconciliationData.reduce(
+    (sum, r) => sum + r.unpaidAmount,
+    0,
+  );
   const overdueCount = debtRecords.filter((d) => d.status === "overdue").length;
   const overdueAmount = debtRecords
     .filter((d) => d.status === "overdue")
@@ -4597,13 +6464,13 @@ const FinanceModule = ({
         !financeSearchKey ||
         item.customerName?.includes(financeSearchKey) ||
         item.customerPhone?.includes(financeSearchKey);
-      
+
       const matchStatus =
         financeFilterStatus === "all" ||
         (financeFilterStatus === "overdue" && item.status === "overdue") ||
         (financeFilterStatus === "paid" && item.status === "paid") ||
         (financeFilterStatus === "unpaid" && item.status === "unpaid");
-      
+
       return matchSearch && matchStatus;
     });
   };
@@ -4613,12 +6480,12 @@ const FinanceModule = ({
     return [...data].sort((a, b) => {
       let aVal = a[financeSortField];
       let bVal = b[financeSortField];
-      
+
       if (typeof aVal === "string") {
         aVal = aVal.toLowerCase();
         bVal = bVal.toLowerCase();
       }
-      
+
       if (financeSortOrder === "asc") {
         return aVal > bVal ? 1 : -1;
       } else {
@@ -4645,10 +6512,12 @@ const FinanceModule = ({
   // 查看客户详情
   const viewCustomerDetail = (customer) => {
     const customerOutRecords = outRecords.filter(
-      (r) => r.recipientName === customer.customerName
+      (r) => r.recipientName === customer.customerName,
     );
-    const customerInfo = customers.find((c) => c.name === customer.customerName);
-    
+    const customerInfo = customers.find(
+      (c) => c.name === customer.customerName,
+    );
+
     setSelectedCustomerDetail({
       ...customer,
       records: customerOutRecords,
@@ -4664,13 +6533,15 @@ const FinanceModule = ({
     const rows = data.map((row) =>
       Object.values(row)
         .map((val) => `"${val}"`)
-        .join(",")
+        .join(","),
     );
     return [headers, ...rows].join("\n");
   };
 
   const _downloadCSV = (csv, filename) => {
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["\ufeff" + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = filename;
@@ -4695,7 +6566,9 @@ const FinanceModule = ({
                 <span className="text-xl font-bold">¥</span>
               </div>
             </div>
-            <p className="text-xs text-blue-500 mt-2">{reconciliationData.length} 位客户</p>
+            <p className="text-xs text-blue-500 mt-2">
+              {reconciliationData.length} 位客户
+            </p>
           </div>
 
           <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-5">
@@ -4711,7 +6584,11 @@ const FinanceModule = ({
               </div>
             </div>
             <p className="text-xs text-green-500 mt-2">
-              占比 {totalReceivable > 0 ? ((totalPaid / totalReceivable) * 100).toFixed(1) : 0}%
+              占比{" "}
+              {totalReceivable > 0
+                ? ((totalPaid / totalReceivable) * 100).toFixed(1)
+                : 0}
+              %
             </p>
           </div>
 
@@ -4728,7 +6605,11 @@ const FinanceModule = ({
               </div>
             </div>
             <p className="text-xs text-orange-500 mt-2">
-              占比 {totalReceivable > 0 ? ((totalUnpaid / totalReceivable) * 100).toFixed(1) : 0}%
+              占比{" "}
+              {totalReceivable > 0
+                ? ((totalUnpaid / totalReceivable) * 100).toFixed(1)
+                : 0}
+              %
             </p>
           </div>
 
@@ -4754,7 +6635,10 @@ const FinanceModule = ({
             <h3 className="font-semibold text-gray-800">客户对账汇总</h3>
             <div className="flex gap-2">
               <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
                 <input
                   type="text"
                   placeholder="搜索客户"
@@ -4786,29 +6670,44 @@ const FinanceModule = ({
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 text-gray-600">
-                  <th 
+                  <th
                     className="px-4 py-3 text-left font-medium cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort("customerName")}
                   >
                     <div>
-                      客户名称 <SortIcon field="customerName" financeSortField={financeSortField} financeSortOrder={financeSortOrder} />
+                      客户名称{" "}
+                      <SortIcon
+                        field="customerName"
+                        financeSortField={financeSortField}
+                        financeSortOrder={financeSortOrder}
+                      />
                     </div>
                   </th>
-                  <th 
+                  <th
                     className="px-4 py-3 text-left font-medium cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort("totalAmount")}
                   >
                     <div>
-                      交易总额 <SortIcon field="totalAmount" financeSortField={financeSortField} financeSortOrder={financeSortOrder} />
+                      交易总额{" "}
+                      <SortIcon
+                        field="totalAmount"
+                        financeSortField={financeSortField}
+                        financeSortOrder={financeSortOrder}
+                      />
                     </div>
                   </th>
                   <th className="px-4 py-3 text-left font-medium">已付金额</th>
-                  <th 
+                  <th
                     className="px-4 py-3 text-left font-medium cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort("unpaidAmount")}
                   >
                     <div>
-                      未付金额 <SortIcon field="unpaidAmount" financeSortField={financeSortField} financeSortOrder={financeSortOrder} />
+                      未付金额{" "}
+                      <SortIcon
+                        field="unpaidAmount"
+                        financeSortField={financeSortField}
+                        financeSortOrder={financeSortOrder}
+                      />
                     </div>
                   </th>
                   <th className="px-4 py-3 text-left font-medium">交易笔数</th>
@@ -4818,46 +6717,78 @@ const FinanceModule = ({
                 </tr>
               </thead>
               <tbody>
-                {paginateData(sortData(filterData(reconciliationData))).map((item) => (
-                  <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-800">{item.customerName}</div>
-                      <div className="text-xs text-gray-500">{item.customerPhone}</div>
-                    </td>
-                    <td className="px-4 py-3 font-medium">¥{item.totalAmount.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-green-600">¥{item.paidAmount.toFixed(2)}</td>
-                    <td className="px-4 py-3">
-                      <span className={item.unpaidAmount > 0 ? "text-red-500 font-medium" : "text-gray-500"}>
-                        ¥{item.unpaidAmount.toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{item.transactionCount} 笔</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{item.lastTransactionDate}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                        item.status === "paid"
-                          ? "bg-green-100 text-green-700"
-                          : item.status === "overdue"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-orange-100 text-orange-700"
-                      }`}>
-                        {item.status === "paid" ? "已结清" : item.status === "overdue" ? "已逾期" : "未结清"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => viewCustomerDetail(item)}
-                        className="p-1.5 text-gray-400 hover:text-blue-500 transition-colors"
-                        title="查看详情"
-                      >
-                        <Eye size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {paginateData(sortData(filterData(reconciliationData))).map(
+                  (item) => (
+                    <tr
+                      key={item.id}
+                      className="border-b border-gray-100 hover:bg-gray-50"
+                    >
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-800">
+                          {item.customerName}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {item.customerPhone}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-medium">
+                        ¥{item.totalAmount.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-green-600">
+                        ¥{item.paidAmount.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={
+                            item.unpaidAmount > 0
+                              ? "text-red-500 font-medium"
+                              : "text-gray-500"
+                          }
+                        >
+                          ¥{item.unpaidAmount.toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {item.transactionCount} 笔
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">
+                        {item.lastTransactionDate}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                            item.status === "paid"
+                              ? "bg-green-100 text-green-700"
+                              : item.status === "overdue"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-orange-100 text-orange-700"
+                          }`}
+                        >
+                          {item.status === "paid"
+                            ? "已结清"
+                            : item.status === "overdue"
+                              ? "已逾期"
+                              : "未结清"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => viewCustomerDetail(item)}
+                          className="p-1.5 text-gray-400 hover:text-blue-500 transition-colors"
+                          title="查看详情"
+                        >
+                          <Eye size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ),
+                )}
                 {filterData(reconciliationData).length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                    <td
+                      colSpan={8}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
                       暂无对账数据
                     </td>
                   </tr>
@@ -4886,18 +6817,31 @@ const FinanceModule = ({
                   <option value={50}>50条/页</option>
                 </select>
                 <button
-                  onClick={() => setFinanceCurrentPage(Math.max(1, financeCurrentPage - 1))}
+                  onClick={() =>
+                    setFinanceCurrentPage(Math.max(1, financeCurrentPage - 1))
+                  }
                   disabled={financeCurrentPage === 1}
                   className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft size={16} />
                 </button>
                 <span className="text-sm text-gray-600">
-                  {financeCurrentPage} / {Math.max(1, Math.ceil(filterData(reconciliationData).length / financePageSize))}
+                  {financeCurrentPage} /{" "}
+                  {Math.max(
+                    1,
+                    Math.ceil(
+                      filterData(reconciliationData).length / financePageSize,
+                    ),
+                  )}
                 </span>
                 <button
                   onClick={() => setFinanceCurrentPage(financeCurrentPage + 1)}
-                  disabled={financeCurrentPage >= Math.ceil(filterData(reconciliationData).length / financePageSize)}
+                  disabled={
+                    financeCurrentPage >=
+                    Math.ceil(
+                      filterData(reconciliationData).length / financePageSize,
+                    )
+                  }
                   className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ChevronRightIcon size={16} />
@@ -4913,13 +6857,16 @@ const FinanceModule = ({
   // 客户对账视图
   if (financeSubTab === "reconciliation") {
     const filteredReconciliation = filterData(reconciliationData);
-    
+
     return (
       <div className="space-y-6">
         {/* 搜索和筛选 */}
         <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
           <div className="relative w-full sm:w-80">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
             <input
               type="text"
               placeholder="搜索客户名称、手机号"
@@ -4959,7 +6906,9 @@ const FinanceModule = ({
                   <th className="px-4 py-3 text-right font-medium">交易总额</th>
                   <th className="px-4 py-3 text-right font-medium">已付金额</th>
                   <th className="px-4 py-3 text-right font-medium">未付金额</th>
-                  <th className="px-4 py-3 text-center font-medium">交易笔数</th>
+                  <th className="px-4 py-3 text-center font-medium">
+                    交易笔数
+                  </th>
                   <th className="px-4 py-3 text-left font-medium">最后交易</th>
                   <th className="px-4 py-3 text-left font-medium">状态</th>
                   <th className="px-4 py-3 text-right font-medium">操作</th>
@@ -4967,40 +6916,67 @@ const FinanceModule = ({
               </thead>
               <tbody>
                 {paginateData(sortData(filteredReconciliation)).map((item) => (
-                  <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <tr
+                    key={item.id}
+                    className="border-b border-gray-100 hover:bg-gray-50"
+                  >
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-800">{item.customerName}</div>
+                      <div className="font-medium text-gray-800">
+                        {item.customerName}
+                      </div>
                       <div>{item.customerPhone}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        item.category === "VIP客户"
-                          ? "bg-purple-100 text-purple-700"
-                          : item.category === "批发客户"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-gray-100 text-gray-700"
-                      }`}>
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          item.category === "VIP客户"
+                            ? "bg-purple-100 text-purple-700"
+                            : item.category === "批发客户"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-gray-100 text-gray-700"
+                        }`}
+                      >
                         {item.category}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right font-medium">¥{item.totalAmount.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-right text-green-600">¥{item.paidAmount.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right font-medium">
+                      ¥{item.totalAmount.toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-green-600">
+                      ¥{item.paidAmount.toFixed(2)}
+                    </td>
                     <td className="px-4 py-3 text-right">
-                      <span className={item.unpaidAmount > 0 ? "text-red-500 font-medium" : "text-gray-500"}>
+                      <span
+                        className={
+                          item.unpaidAmount > 0
+                            ? "text-red-500 font-medium"
+                            : "text-gray-500"
+                        }
+                      >
                         ¥{item.unpaidAmount.toFixed(2)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center text-gray-600">{item.transactionCount} 笔</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{item.lastTransactionDate}</td>
+                    <td className="px-4 py-3 text-center text-gray-600">
+                      {item.transactionCount} 笔
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">
+                      {item.lastTransactionDate}
+                    </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                        item.status === "paid"
-                          ? "bg-green-100 text-green-700"
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                          item.status === "paid"
+                            ? "bg-green-100 text-green-700"
+                            : item.status === "overdue"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-orange-100 text-orange-700"
+                        }`}
+                      >
+                        {item.status === "paid"
+                          ? "已结清"
                           : item.status === "overdue"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-orange-100 text-orange-700"
-                      }`}>
-                        {item.status === "paid" ? "已结清" : item.status === "overdue" ? "已逾期" : "未结清"}
+                            ? "已逾期"
+                            : "未结清"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -5031,7 +7007,10 @@ const FinanceModule = ({
                 ))}
                 {filteredReconciliation.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                    <td
+                      colSpan={9}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
                       暂无对账数据
                     </td>
                   </tr>
@@ -5060,18 +7039,24 @@ const FinanceModule = ({
                   <option value={50}>50条/页</option>
                 </select>
                 <button
-                  onClick={() => setFinanceCurrentPage(Math.max(1, financeCurrentPage - 1))}
+                  onClick={() =>
+                    setFinanceCurrentPage(Math.max(1, financeCurrentPage - 1))
+                  }
                   disabled={financeCurrentPage === 1}
                   className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
                 >
                   <ChevronLeft size={16} />
                 </button>
                 <span className="text-sm text-gray-600">
-                  {financeCurrentPage} / {Math.ceil(filteredReconciliation.length / financePageSize)}
+                  {financeCurrentPage} /{" "}
+                  {Math.ceil(filteredReconciliation.length / financePageSize)}
                 </span>
                 <button
                   onClick={() => setFinanceCurrentPage(financeCurrentPage + 1)}
-                  disabled={financeCurrentPage >= Math.ceil(filteredReconciliation.length / financePageSize)}
+                  disabled={
+                    financeCurrentPage >=
+                    Math.ceil(filteredReconciliation.length / financePageSize)
+                  }
                   className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
                 >
                   <ChevronRightIcon size={16} />
@@ -5087,7 +7072,7 @@ const FinanceModule = ({
   // 欠款管理视图
   if (financeSubTab === "debt") {
     const filteredDebts = filterData(debtRecords);
-    
+
     return (
       <div className="space-y-6">
         {/* 欠款统计卡片 */}
@@ -5097,14 +7082,19 @@ const FinanceModule = ({
               <div>
                 <p className="text-sm text-red-600 font-medium">总欠款金额</p>
                 <p className="text-2xl font-bold text-gray-800 mt-1">
-                  ¥{debtRecords.reduce((sum, d) => sum + d.debtAmount, 0).toFixed(2)}
+                  ¥
+                  {debtRecords
+                    .reduce((sum, d) => sum + d.debtAmount, 0)
+                    .toFixed(2)}
                 </p>
               </div>
               <div className="w-12 h-12 bg-red-500 rounded-lg flex items-center justify-center text-white">
                 <AlertTriangle size={24} />
               </div>
             </div>
-            <p className="text-xs text-red-500 mt-2">{debtRecords.length} 笔欠款</p>
+            <p className="text-xs text-red-500 mt-2">
+              {debtRecords.length} 笔欠款
+            </p>
           </div>
 
           <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-5">
@@ -5119,7 +7109,9 @@ const FinanceModule = ({
                 <Clock size={24} />
               </div>
             </div>
-            <p className="text-xs text-orange-500 mt-2">{overdueCount} 笔逾期</p>
+            <p className="text-xs text-orange-500 mt-2">
+              {overdueCount} 笔逾期
+            </p>
           </div>
 
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-5">
@@ -5127,7 +7119,13 @@ const FinanceModule = ({
               <div>
                 <p className="text-sm text-blue-600 font-medium">平均欠款</p>
                 <p className="text-2xl font-bold text-gray-800 mt-1">
-                  ¥{debtRecords.length > 0 ? (debtRecords.reduce((sum, d) => sum + d.debtAmount, 0) / debtRecords.length).toFixed(2) : "0.00"}
+                  ¥
+                  {debtRecords.length > 0
+                    ? (
+                        debtRecords.reduce((sum, d) => sum + d.debtAmount, 0) /
+                        debtRecords.length
+                      ).toFixed(2)
+                    : "0.00"}
                 </p>
               </div>
               <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center text-white">
@@ -5141,7 +7139,10 @@ const FinanceModule = ({
         {/* 搜索和筛选 */}
         <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
           <div className="relative w-full sm:w-80">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
             <input
               type="text"
               placeholder="搜索客户名称、手机号"
@@ -5177,14 +7178,24 @@ const FinanceModule = ({
                 <tr className="bg-gray-50 text-gray-600">
                   <th className="px-4 py-3 text-left font-medium">客户名称</th>
                   <th className="px-4 py-3 text-left font-medium">联系方式</th>
-                  <th className="px-4 py-3 text-right font-medium cursor-pointer" onClick={() => handleSort("debtAmount")}>
+                  <th
+                    className="px-4 py-3 text-right font-medium cursor-pointer"
+                    onClick={() => handleSort("debtAmount")}
+                  >
                     <div className="flex items-center justify-end gap-1">
-                      欠款金额 <SortIcon field="debtAmount" financeSortField={financeSortField} financeSortOrder={financeSortOrder} />
+                      欠款金额{" "}
+                      <SortIcon
+                        field="debtAmount"
+                        financeSortField={financeSortField}
+                        financeSortOrder={financeSortOrder}
+                      />
                     </div>
                   </th>
                   <th className="px-4 py-3 text-left font-medium">欠款日期</th>
                   <th className="px-4 py-3 text-left font-medium">到期日期</th>
-                  <th className="px-4 py-3 text-center font-medium">逾期天数</th>
+                  <th className="px-4 py-3 text-center font-medium">
+                    逾期天数
+                  </th>
                   <th className="px-4 py-3 text-left font-medium">状态</th>
                   <th className="px-4 py-3 text-left font-medium">备注</th>
                   <th className="px-4 py-3 text-right font-medium">操作</th>
@@ -5192,35 +7203,56 @@ const FinanceModule = ({
               </thead>
               <tbody>
                 {paginateData(sortData(filteredDebts)).map((item) => (
-                  <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-800">{item.customerName}</td>
-                    <td className="px-4 py-3 text-gray-500">{item.customerPhone}</td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="text-red-500 font-medium">¥{item.debtAmount.toFixed(2)}</span>
+                  <tr
+                    key={item.id}
+                    className="border-b border-gray-100 hover:bg-gray-50"
+                  >
+                    <td className="px-4 py-3 font-medium text-gray-800">
+                      {item.customerName}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{item.debtDate}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{item.dueDate}</td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {item.customerPhone}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-red-500 font-medium">
+                        ¥{item.debtAmount.toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">
+                      {item.debtDate}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">
+                      {item.dueDate}
+                    </td>
                     <td className="px-4 py-3 text-center">
                       {item.overdueDays > 0 ? (
-                        <span className="text-red-500 font-medium">{item.overdueDays} 天</span>
+                        <span className="text-red-500 font-medium">
+                          {item.overdueDays} 天
+                        </span>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                        item.status === "overdue"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-orange-100 text-orange-700"
-                      }`}>
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                          item.status === "overdue"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-orange-100 text-orange-700"
+                        }`}
+                      >
                         {item.status === "overdue" ? "已逾期" : "未付款"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{item.remark}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">
+                      {item.remark}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => {
-                          const customer = reconciliationData.find((r) => r.customerName === item.customerName);
+                          const customer = reconciliationData.find(
+                            (r) => r.customerName === item.customerName,
+                          );
                           if (customer) viewCustomerDetail(customer);
                         }}
                         className="p-1.5 text-gray-400 hover:text-blue-500 transition-colors"
@@ -5233,7 +7265,10 @@ const FinanceModule = ({
                 ))}
                 {filteredDebts.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                    <td
+                      colSpan={9}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
                       暂无欠款记录
                     </td>
                   </tr>
@@ -5262,18 +7297,24 @@ const FinanceModule = ({
                   <option value={50}>50条/页</option>
                 </select>
                 <button
-                  onClick={() => setFinanceCurrentPage(Math.max(1, financeCurrentPage - 1))}
+                  onClick={() =>
+                    setFinanceCurrentPage(Math.max(1, financeCurrentPage - 1))
+                  }
                   disabled={financeCurrentPage === 1}
                   className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
                 >
                   <ChevronLeft size={16} />
                 </button>
                 <span className="text-sm text-gray-600">
-                  {financeCurrentPage} / {Math.ceil(filteredDebts.length / financePageSize)}
+                  {financeCurrentPage} /{" "}
+                  {Math.ceil(filteredDebts.length / financePageSize)}
                 </span>
                 <button
                   onClick={() => setFinanceCurrentPage(financeCurrentPage + 1)}
-                  disabled={financeCurrentPage >= Math.ceil(filteredDebts.length / financePageSize)}
+                  disabled={
+                    financeCurrentPage >=
+                    Math.ceil(filteredDebts.length / financePageSize)
+                  }
                   className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
                 >
                   <ChevronRightIcon size={16} />
@@ -5290,7 +7331,14 @@ const FinanceModule = ({
 };
 
 // 收款弹窗组件
-const PaymentModal = ({ show, onClose, paymentForm, setPaymentForm, onSubmit, numberToChinese }) => {
+const PaymentModal = ({
+  show,
+  onClose,
+  paymentForm,
+  setPaymentForm,
+  onSubmit,
+  numberToChinese,
+}) => {
   if (!show) return null;
 
   const amount = parseFloat(paymentForm.amount) || 0;
@@ -5308,7 +7356,9 @@ const PaymentModal = ({ show, onClose, paymentForm, setPaymentForm, onSubmit, nu
             </div>
             <div>
               <h4 className="text-lg font-bold text-gray-900">客户收款</h4>
-              <p className="text-xs text-gray-500">{paymentForm.customerName}</p>
+              <p className="text-xs text-gray-500">
+                {paymentForm.customerName}
+              </p>
             </div>
           </div>
           <button
@@ -5328,7 +7378,9 @@ const PaymentModal = ({ show, onClose, paymentForm, setPaymentForm, onSubmit, nu
                 收款金额 <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">
+                  ¥
+                </span>
                 <input
                   type="number"
                   step="0.01"
@@ -5350,10 +7402,13 @@ const PaymentModal = ({ show, onClose, paymentForm, setPaymentForm, onSubmit, nu
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                优惠金额 <span className="text-gray-400 font-normal">(选填)</span>
+                优惠金额{" "}
+                <span className="text-gray-400 font-normal">(选填)</span>
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">¥</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">
+                  ¥
+                </span>
                 <input
                   type="number"
                   step="0.01"
@@ -5397,7 +7452,12 @@ const PaymentModal = ({ show, onClose, paymentForm, setPaymentForm, onSubmit, nu
             </label>
             <select
               value={paymentForm.paymentMethod}
-              onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
+              onChange={(e) =>
+                setPaymentForm({
+                  ...paymentForm,
+                  paymentMethod: e.target.value,
+                })
+              }
               className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
             >
               <option value="cash">💵 现金</option>
@@ -5414,11 +7474,19 @@ const PaymentModal = ({ show, onClose, paymentForm, setPaymentForm, onSubmit, nu
               业务时间 <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Calendar
+                size={16}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+              />
               <input
                 type="datetime-local"
                 value={paymentForm.businessTime}
-                onChange={(e) => setPaymentForm({ ...paymentForm, businessTime: e.target.value })}
+                onChange={(e) =>
+                  setPaymentForm({
+                    ...paymentForm,
+                    businessTime: e.target.value,
+                  })
+                }
                 className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
               />
             </div>
@@ -5431,7 +7499,9 @@ const PaymentModal = ({ show, onClose, paymentForm, setPaymentForm, onSubmit, nu
             </label>
             <textarea
               value={paymentForm.remark}
-              onChange={(e) => setPaymentForm({ ...paymentForm, remark: e.target.value })}
+              onChange={(e) =>
+                setPaymentForm({ ...paymentForm, remark: e.target.value })
+              }
               placeholder="请输入备注信息"
               rows={3}
               className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all resize-none"
@@ -5461,9 +7531,3 @@ const PaymentModal = ({ show, onClose, paymentForm, setPaymentForm, onSubmit, nu
 };
 
 export default App;
-
-
-
-
-
-
